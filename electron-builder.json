@@ -1,0 +1,56 @@
+{
+    "appId": "com.orbidi.autoqa",
+    "productName": "AutoQA",
+    "asar": true,
+    "directories": {
+        "output": "dist",
+        "buildResources": "build"
+    },
+    "files": [
+        ".next/**/*",
+        "src/**/*",
+        "public/**/*",
+        "electron.cjs",
+        "preload.cjs",
+        "server.js",
+        "package.json",
+        "next.config.mjs",
+        "node_modules/**/*"
+    ],
+    "extraMetadata": {
+        "main": "electron.cjs"
+    },
+    "win": {
+        "target": [
+            {
+                "target": "dir",
+                "arch": [
+                    "x64"
+                ]
+            }
+        ],
+        "icon": "public/favicon.ico",
+        "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+        "oneClick": false,
+        "allowToChangeInstallationDirectory": true,
+        "createDesktopShortcut": true,
+        "createStartMenuShortcut": true,
+        "shortcutName": "AutoQA"
+    },
+    "mac": {
+        "target": [
+            "dmg"
+        ],
+        "icon": "public/favicon.ico",
+        "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+        "target": [
+            "AppImage"
+        ],
+        "icon": "public/favicon.ico",
+        "category": "Development"
+    }
+}
