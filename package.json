@@ -5,7 +5,7 @@
   "main": "electron.cjs",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "preview:electron": "cross-env NODE_ENV=production next build --webpack && electron .",
@@ -30,7 +30,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "baseline-browser-mapping": "^2.9.9",
+    "baseline-browser-mapping": "^2.9.10",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^39.2.7",

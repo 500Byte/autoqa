@@ -178,9 +178,15 @@ export default function Home() {
               }
             }
           } else if (line.startsWith('RESULT:')) {
-            const resultData = JSON.parse(line.substring(7));
-            setResults(prev => [...prev, resultData]);
-            setCurrentAnalyzingUrl('');
+            try {
+              const data = JSON.parse(line.substring(7));
+              // Si la respuesta viene como { url, result: { ... } }, la aplanamos
+              const finalResult = data.result ? { url: data.url, ...data.result } : data;
+              setResults(prev => [...prev, finalResult]);
+              setCurrentAnalyzingUrl('');
+            } catch (e) {
+              console.error('Error parsing result:', e);
+            }
           } else if (line.startsWith('ERROR:')) {
             const errorMessage = line.substring(6);
             throw new Error(errorMessage);
@@ -413,19 +419,19 @@ export default function Home() {
                           <CardDescription className="text-xs truncate mt-1">{result.url}</CardDescription>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
-                          <Badge variant={result.seoIssues.length ? "destructive" : "secondary"} className="text-xs">
-                            SEO: {result.seoIssues.length}
+                          <Badge variant={(result.seoIssues || []).length ? "destructive" : "secondary"} className="text-xs">
+                            SEO: {(result.seoIssues || []).length}
                           </Badge>
-                          <Badge variant={result.accessibilityIssues.length ? "destructive" : "secondary"} className="text-xs">
-                            A11y: {result.accessibilityIssues.length}
+                          <Badge variant={(result.accessibilityIssues || []).length ? "destructive" : "secondary"} className="text-xs">
+                            A11y: {(result.accessibilityIssues || []).length}
                           </Badge>
                         </div>
                       </div>
                     </CardHeader>
 
-                    {(result.seoIssues.length > 0 || result.accessibilityIssues.length > 0) && (
+                    {((result.seoIssues || []).length > 0 || (result.accessibilityIssues || []).length > 0) && (
                       <CardContent className="pt-4 space-y-3">
-                        {result.seoIssues.length > 0 && (
+                        {(result.seoIssues || []).length > 0 && (
                           <div className="space-y-2">
                             <h4 className="text-sm font-semibold flex items-center gap-2">
                               <Search className="h-4 w-4" /> SEO Issues
@@ -441,13 +447,13 @@ export default function Home() {
                           </div>
                         )}
 
-                        {result.accessibilityIssues.length > 0 && (
+                        {(result.accessibilityIssues || []).length > 0 && (
                           <div className="space-y-2">
                             <h4 className="text-sm font-semibold flex items-center gap-2">
                               <AlertCircle className="h-4 w-4" /> Accessibility
                             </h4>
                             <div className="space-y-2">
-                              {result.accessibilityIssues.slice(0, 3).map((issue, i) => (
+                              {(result.accessibilityIssues || []).slice(0, 3).map((issue, i) => (
                                 <div key={i} className="bg-gray-50 border p-3 rounded-md text-sm transition-all duration-200 hover:shadow-sm">
                                   <div className="flex justify-between items-center mb-1">
                                     <span className="font-medium">{issue.id}</span>
@@ -456,9 +462,9 @@ export default function Home() {
                                   <p className="text-gray-600 text-xs">{issue.description}</p>
                                 </div>
                               ))}
-                              {result.accessibilityIssues.length > 3 && (
+                              {(result.accessibilityIssues || []).length > 3 && (
                                 <div>
-                                  {expandedResults.has(idx) && result.accessibilityIssues.slice(3).map((issue, i) => (
+                                  {expandedResults.has(idx) && (result.accessibilityIssues || []).slice(3).map((issue, i) => (
                                     <div key={i + 3} className="bg-gray-50 border p-3 rounded-md text-sm mb-2 transition-all duration-200 hover:shadow-sm animate-in fade-in slide-in-from-top-2">
                                       <div className="flex justify-between items-center mb-1">
                                         <span className="font-medium">{issue.id}</span>
@@ -479,7 +485,7 @@ export default function Home() {
                                     }}
                                     className="text-xs text-blue-600 hover:text-blue-700 font-medium w-full text-center py-2 hover:bg-blue-50 rounded-md transition-colors"
                                   >
-                                    {expandedResults.has(idx) ? '− Show less' : `+ Show ${result.accessibilityIssues.length - 3} more`}
+                                    {expandedResults.has(idx) ? '− Show less' : `+ Show ${(result.accessibilityIssues || []).length - 3} more`}
                                   </button>
                                 </div>
                               )}
