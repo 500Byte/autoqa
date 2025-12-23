@@ -61,6 +61,12 @@ export async function POST(request: Request) {
                 let processedCount = 0;
 
                 for (const url of urls) {
+                    // Check if the request has been aborted by the user
+                    if (request.signal.aborted) {
+                        sendLog('🛑 Análisis cancelado por el usuario (AbortSignal recibida).');
+                        break;
+                    }
+
                     try {
                         processedCount++;
                         sendLog(`[${processedCount}/${urls.length}] Analizando: ${url}`);

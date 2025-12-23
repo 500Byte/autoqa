@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 // Force production mode if not explicitly in development
@@ -146,6 +147,35 @@ function startNextServer() {
     });
 }
 
+// Configuración de Update
+autoUpdater.autoDownload = false;
+autoUpdater.allowPrerelease = true; // Importante para esta etapa
+
+// Eventos de actualización
+autoUpdater.on('update-available', () => {
+    dialog.showMessageBox({
+        type: 'info',
+        title: 'Actualización Disponible',
+        message: 'Hay una nueva versión de AutoQA. ¿Quieres descargarla ahora?',
+        buttons: ['Sí', 'No']
+    }).then((result) => {
+        if (result.response === 0) { // Si dice Sí
+            autoUpdater.downloadUpdate();
+        }
+    });
+});
+
+autoUpdater.on('update-downloaded', () => {
+    dialog.showMessageBox({
+        type: 'info',
+        title: 'Actualización Lista',
+        message: 'La actualización se ha descargado. La aplicación se reiniciará para instalarla.',
+        buttons: ['Reiniciar']
+    }).then(() => {
+        autoUpdater.quitAndInstall();
+    });
+});
+
 app.whenReady().then(async () => {
     try {
         // Check if running in automation mode (triggered by Puppeteer)
@@ -159,6 +189,11 @@ app.whenReady().then(async () => {
 
         createWindow();
         createAnalysisWindow(); // Create the hidden worker window
+
+        // Solo chequear en producción (empaquetado)
+        if (app.isPackaged) {
+            autoUpdater.checkForUpdates();
+        }
     } catch (error) {
         console.error('Error starting application:', error);
         app.quit();

@@ -20,14 +20,26 @@
     "extraMetadata": {
         "main": "electron.cjs"
     },
+    "publish": [
+        {
+            "provider": "github",
+            "owner": "500Byte",
+            "repo": "autoqa",
+            "releaseType": "prerelease"
+        }
+    ],
     "win": {
         "target": [
+            "nsis",
             {
                 "target": "dir",
                 "arch": [
                     "x64"
                 ]
             }
+        ],
+        "publish": [
+            "github"
         ],
         "icon": "public/favicon.ico",
         "artifactName": "${productName}-Setup-${version}.${ext}"
