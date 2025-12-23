@@ -14,7 +14,9 @@ import {
   Terminal,
   Activity,
   Check,
-  Minus
+  Minus,
+  ArrowLeft,
+  CornerUpLeft
 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -122,6 +124,19 @@ export default function Home() {
 
   const handleDeselectAll = () => {
     setSelectedUrls(new Set());
+  };
+
+  const handleGoBackToInput = () => {
+    setSitemapUrls([]);
+    setSelectedUrls(new Set());
+    setDomain('');
+  };
+
+  const handleGoBackToSelection = () => {
+    setResults([]);
+    setAnalyzing(false);
+    setLogs([]);
+    setCurrentAnalyzingUrl('');
   };
 
   const handleStopAnalysis = () => {
@@ -281,13 +296,24 @@ export default function Home() {
           "transition-all duration-300 max-w-4xl mx-auto",
           isSelectionState ? "opacity-100" : "opacity-0 hidden"
         )}>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Select Pages</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Found {sitemapUrls.length} URLs • {selectedUrls.size} selected
-                <span className="text-gray-400 ml-2">• Shift+Click para selección por lote</span>
-              </p>
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-start gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleGoBackToInput}
+                className="mt-1 h-8 w-8 hover:bg-gray-100 rounded-full"
+                title="Volver"
+              >
+                <ArrowLeft className="h-5 w-5 text-gray-500" />
+              </Button>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Select Pages</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Found {sitemapUrls.length} URLs • {selectedUrls.size} selected
+                  <span className="text-gray-400 ml-2">• Shift+Click para selección por lote</span>
+                </p>
+              </div>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleSelectAll}>
@@ -310,7 +336,7 @@ export default function Home() {
                     key={url}
                     onClick={(e) => handleToggleUrl(url, index, e)}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-all duration-200 text-sm",
+                      "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-all duration-200 text-sm select-none",
                       selectedUrls.has(url)
                         ? "bg-blue-50 text-blue-900 scale-[0.99]"
                         : "hover:bg-gray-50 hover:scale-[1.01]"
@@ -397,7 +423,20 @@ export default function Home() {
             {/* Right Column: Results */}
             <div className="lg:col-span-2 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Results</h2>
+                <div className="flex items-center gap-3">
+                  {!analyzing && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleGoBackToSelection}
+                      className="h-8 w-8 hover:bg-gray-100 rounded-full"
+                      title="Nueva Selección"
+                    >
+                      <CornerUpLeft className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  )}
+                  <h2 className="text-xl font-bold text-gray-900">Results</h2>
+                </div>
                 <Badge variant="outline">
                   {results.length} / {selectedUrls.size}
                 </Badge>
