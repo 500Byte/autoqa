@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build & Release (Multi-OS)
 
 on:
   push:
@@ -6,12 +6,13 @@ on:
       - main
 
 jobs:
-  build-and-release:
-    runs-on: windows-latest
-    
-    permissions:
-      contents: write
-      
+  release:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -25,13 +26,21 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      # Build de Next.js (Se ejecuta en ambos OS)
       - name: Build Next.js
         run: npm run build
         env:
           NODE_ENV: production
 
-      - name: Build & Publish Electron
+      # Compilación condicional según el OS
+      - name: Build & Publish Electron (Windows)
+        if: matrix.os == 'windows-latest'
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        # El flag -p always fuerza la publicación usando la config de electron-builder.json
-        run: npx electron-builder --publish always
+        run: npx electron-builder --win --publish always
+
+      - name: Build & Publish Electron (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: npx electron-builder --linux --publish always

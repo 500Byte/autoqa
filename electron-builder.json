@@ -31,6 +31,7 @@
     "win": {
         "target": [
             "nsis",
+            "zip",
             {
                 "target": "dir",
                 "arch": [
@@ -53,14 +54,16 @@
     },
     "mac": {
         "target": [
-            "dmg"
+            "dmg",
+            "zip"
         ],
         "icon": "public/favicon.ico",
         "category": "public.app-category.developer-tools"
     },
     "linux": {
         "target": [
-            "AppImage"
+            "AppImage",
+            "zip"
         ],
         "icon": "public/favicon.ico",
         "category": "Development"
