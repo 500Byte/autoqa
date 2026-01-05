@@ -1,11 +1,169 @@
 import { NextResponse } from 'next/server';
-import { chromium, Browser, Page } from 'playwright-core';
+import { chromium, Browser, BrowserContext, Page } from 'playwright-core';
+import pLimit from 'p-limit';
 import { analyzeSeo } from '@/lib/analyzer/seo';
 import { runAxeAnalysis } from '@/lib/analyzer/accessibility';
 import { checkLinks } from '@/lib/analyzer/links';
-import { Heading } from '@/types';
 
 export const dynamic = 'force-dynamic';
+
+// --- CONFIGURATION ---
+const MAX_CONCURRENCY = 2; // Conservative start
+const ANALYSIS_ENGINE: 'headless' | 'cdp' = 'headless'; // 'headless' (new, robust) or 'cdp' (legacy)
+const CONTEXT_STRATEGY: 'shared' | 'per-url' = 'shared'; // 'shared' (faster) or 'per-url' (isolation)
+
+// Helper to get or create context based on strategy
+async function getContext(browser: Browser, existingContext: BrowserContext | null): Promise<BrowserContext> {
+    if (CONTEXT_STRATEGY === 'shared') {
+        if (existingContext) return existingContext;
+        return await browser.newContext();
+    }
+    // Per-URL strategy creates a new context every time (caller must handle closing)
+    return await browser.newContext();
+}
+
+// Logic for analyzing a single URL
+async function analyzeSingleUrl(
+    url: string,
+    browser: Browser,
+    sharedContext: BrowserContext | null,
+    sendLog: (msg: string) => void,
+    sendResult: (url: string, res: any) => void,
+    request: Request
+) {
+    if (request.signal.aborted) return;
+
+    let context: BrowserContext | null = null;
+    let page: Page | null = null;
+
+    try {
+        sendLog(`▶️ Iniciando análisis: ${url}`);
+
+        // Context Management
+        if (CONTEXT_STRATEGY === 'shared') {
+            // Re-use the shared batch context
+            context = sharedContext!;
+        } else {
+            // Create a fresh context for this URL
+            context = await getContext(browser, null);
+        }
+
+        // Create Page
+        page = await context.newPage();
+
+        // TIMEOUT WRAPPER (30s)
+        await Promise.race([
+            (async () => {
+                // Navigation
+                try {
+                    await page!.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+                } catch (e) {
+                    sendLog(`⚠️ Timeout idle en ${url}, reintentando con 'load'...`);
+                    await page!.goto(url, { waitUntil: 'load', timeout: 20000 });
+                }
+
+                // Data Extraction
+                const pageData = await page!.evaluate(() => {
+                    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
+                        tag: h.tagName.toLowerCase(),
+                        text: h.textContent?.trim() || '',
+                        level: parseInt(h.tagName.substring(1))
+                    }));
+
+                    const links = Array.from(document.querySelectorAll('a[href]')).map(a => (a as HTMLAnchorElement).href);
+                    const images = Array.from(document.querySelectorAll('img')).map(img => ({
+                        src: img.src,
+                        alt: img.alt
+                    }));
+
+                    const meta = document.querySelector('meta[name="description"]');
+                    const metaDescription = meta ? meta.getAttribute('content') : null;
+
+                    return { headings, links, images, title: document.title, metaDescription };
+                });
+
+                // SEO Analysis
+                const seoIssues = analyzeSeo({
+                    headings: pageData.headings,
+                    title: pageData.title,
+                    metaDescription: pageData.metaDescription
+                });
+
+                // Lazy Load Scroll
+                try {
+                    await page!.evaluate(async () => {
+                        await new Promise((resolve) => {
+                            let totalHeight = 0;
+                            const distance = 400;
+                            const maxScrolls = 10;
+                            let scrolls = 0;
+                            const timer = setInterval(() => {
+                                const scrollHeight = document.body.scrollHeight;
+                                window.scrollBy(0, distance);
+                                totalHeight += distance;
+                                scrolls++;
+                                if (totalHeight >= scrollHeight || scrolls >= maxScrolls) {
+                                    clearInterval(timer);
+                                    resolve(true);
+                                }
+                            }, 50);
+                        });
+                    });
+                } catch (e) { /* ignore */ }
+
+                await page!.waitForTimeout(500);
+
+                // Accessibility Analysis
+                const accessibilityIssues = await runAxeAnalysis(page!);
+
+                // Broken Links
+                const linkResults = await checkLinks(pageData.links);
+                const brokenLinks = linkResults.filter(l => !l.ok);
+
+                // Send Result
+                sendResult(url, {
+                    headings: pageData.headings,
+                    seoIssues,
+                    accessibilityIssues,
+                    brokenLinks,
+                    totalLinksChecked: linkResults.length,
+                    totalLinksFound: [...new Set(pageData.links)].length,
+                    images: pageData.images,
+                    scripts: []
+                });
+
+                sendLog(`✅ Completado: ${url}`);
+            })(),
+
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de análisis (30s)')), 30000))
+        ]);
+
+    } catch (error: any) {
+        console.error(`Error procesando ${url}:`, error);
+        sendLog(`❌ Error en ${url}: ${error.message}`);
+
+        sendResult(url, {
+            error: error.message,
+            accessibilityIssues: [],
+            headings: [],
+            seoIssues: [],
+            brokenLinks: [],
+            totalLinksChecked: 0,
+            totalLinksFound: 0,
+            images: [],
+            scripts: []
+        });
+    } finally {
+        // Cleanup Page
+        if (page) {
+            try { await page.close(); } catch (e) { console.error('Error cerrando página', e); }
+        }
+        // Cleanup Context (ONLY if per-url strategy)
+        if (CONTEXT_STRATEGY === 'per-url' && context) {
+            try { await context.close(); } catch (e) { console.error('Error cerrando contexto', e); }
+        }
+    }
+}
 
 export async function POST(request: Request) {
     const { urls } = await request.json();
@@ -19,173 +177,79 @@ export async function POST(request: Request) {
         async start(controller) {
             const sendLog = (message: string) => {
                 const timestamp = new Date().toLocaleTimeString();
-                console.log(`[${timestamp}] 🔎 ${message}`);
-                try { controller.enqueue(encoder.encode(`LOG:${message}\n`)); } catch (e) { }
+                try { controller.enqueue(encoder.encode(`LOG:${timestamp} ${message}\n`)); } catch (e) { }
             };
             const sendResult = (url: string, result: any) => {
                 try { controller.enqueue(encoder.encode(`RESULT:${JSON.stringify({ url, result })}\n`)); } catch (e) { }
             };
 
             let browser: Browser | null = null;
-            let page: Page | null = null;
+            let sharedContext: BrowserContext | null = null;
 
             try {
-                sendLog(`🚀 Iniciando análisis completo de ${urls.length} URLs...`);
+                sendLog(`🚀 Iniciando análisis (${ANALYSIS_ENGINE}, Concurrency: ${MAX_CONCURRENCY})...`);
 
-                // 1. Conexión CDP Estable
-                try {
-                    browser = await chromium.connectOverCDP('http://localhost:9222');
-                    sendLog('✅ Conexión CDP establecida.');
-                } catch (err) {
-                    sendLog('⚠️ Falló conexión CDP. Lanzando headless fallback...');
-                    browser = await chromium.launch({ headless: true });
-                }
-
-                const defaultContext = browser.contexts()[0];
-                if (!defaultContext) throw new Error('No se encontró el contexto de Electron.');
-
-                const pages = defaultContext.pages();
-                page = pages.find(p => {
+                // 1. Browser Launch Strategy
+                if (ANALYSIS_ENGINE === 'headless') {
+                    // Try/Catch specific to launch
                     try {
-                        const url = p.url();
-                        return url.includes('AnalysisWorker') || url.includes('about:blank');
-                    } catch (e) { return false; }
-                }) || pages[0];
-
-                if (!page) throw new Error('No se encontró ventana de análisis.');
-                sendLog('✅ Worker vinculado.');
-
-                let processedCount = 0;
-
-                for (const url of urls) {
-                    if (request.signal.aborted) {
-                        sendLog('🛑 Análisis cancelado por el usuario (AbortSignal recibida).');
-                        break;
-                    }
-
-                    try {
-                        processedCount++;
-                        sendLog(`[${processedCount}/${urls.length}] Analizando: ${url}`);
-
-                        // WRAPPER PARA TIMEOUT GLOBAL POR URL (30s)
-                        await Promise.race([
-                            (async () => {
-                                // 1. Navegación
-                                try {
-                                    await page!.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
-                                } catch (e) {
-                                    sendLog('Timeout idle, usando load...');
-                                    await page!.goto(url, { waitUntil: 'load', timeout: 20000 });
-                                }
-
-                                // 2. Extracción de Datos
-                                const pageData = await page!.evaluate(() => {
-                                    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
-                                        tag: h.tagName.toLowerCase(),
-                                        text: h.textContent?.trim() || '',
-                                        level: parseInt(h.tagName.substring(1))
-                                    }));
-
-                                    const links = Array.from(document.querySelectorAll('a[href]')).map(a => (a as HTMLAnchorElement).href);
-                                    const images = Array.from(document.querySelectorAll('img')).map(img => ({
-                                        src: img.src,
-                                        alt: img.alt
-                                    }));
-
-                                    const meta = document.querySelector('meta[name="description"]');
-                                    const metaDescription = meta ? meta.getAttribute('content') : null;
-
-                                    return { headings, links, images, title: document.title, metaDescription };
-                                });
-
-                                // 3. Análisis SEO
-                                const seoIssues = analyzeSeo({
-                                    headings: pageData.headings,
-                                    title: pageData.title,
-                                    metaDescription: pageData.metaDescription
-                                });
-
-                                // 4. Scroll para Lazy Load
-                                try {
-                                    await page!.evaluate(async () => {
-                                        await new Promise((resolve) => {
-                                            let totalHeight = 0;
-                                            const distance = 400;
-                                            const maxScrolls = 10; // Limit scroll to avoid infinite loops
-                                            let scrolls = 0;
-                                            const timer = setInterval(() => {
-                                                const scrollHeight = document.body.scrollHeight;
-                                                window.scrollBy(0, distance);
-                                                totalHeight += distance;
-                                                scrolls++;
-                                                if (totalHeight >= scrollHeight || scrolls >= maxScrolls) {
-                                                    clearInterval(timer);
-                                                    resolve(true);
-                                                }
-                                            }, 50);
-                                        });
-                                    });
-                                } catch (e) { /* ignore scroll errors */ }
-
-                                await page!.waitForTimeout(500);
-
-                                // 5. Análisis Accesibilidad
-                                const accessibilityIssues = await runAxeAnalysis(page!);
-
-                                // 6. Broken Links
-                                // checkLinks is now safe and will not throw
-                                const linkResults = await checkLinks(pageData.links);
-                                const brokenLinks = linkResults.filter(l => !l.ok);
-
-                                // Enviar Resultados Exitosos
-                                sendResult(url, {
-                                    headings: pageData.headings,
-                                    seoIssues,
-                                    accessibilityIssues,
-                                    brokenLinks,
-                                    totalLinksChecked: linkResults.length,
-                                    totalLinksFound: [...new Set(pageData.links)].length,
-                                    images: pageData.images,
-                                    scripts: []
-                                });
-
-                                sendLog(`✅ OK: ${url} (${accessibilityIssues.length} violaciones)`);
-                            })(),
-
-                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de análisis (30s)')), 30000))
-                        ]);
-
-                    } catch (error: any) {
-                        console.error(`Error en ${url}:`, error);
-                        sendLog(`❌ Falló ${url}: ${error.message}`);
-
-                        // Enviar Resultado de Error para mantener consistencia en frontend
-                        sendResult(url, {
-                            error: error.message,
-                            accessibilityIssues: [],
-                            headings: [],
-                            seoIssues: [],
-                            brokenLinks: [],
-                            totalLinksChecked: 0,
-                            totalLinksFound: 0,
-                            images: [],
-                            scripts: []
+                        const executables = {
+                            // Assuming standard paths or playwright-core finding it. 
+                            // If completely failing, user might need to install browsers.
+                            headless: true
+                        };
+                        browser = await chromium.launch({
+                            headless: true,
+                            args: ['--no-sandbox', '--disable-setuid-sandbox']
                         });
-
-                        // Intentar recuperar el navegador
-                        try { if (page) await page.goto('about:blank'); } catch (e) { }
+                        sendLog('✅ Headless Browser lanzado.');
+                    } catch (e: any) {
+                        throw new Error(`Fallo al lanzar chromium headless: ${e.message}`);
+                    }
+                } else {
+                    // CDP Fallback
+                    try {
+                        browser = await chromium.connectOverCDP('http://localhost:9222');
+                        sendLog('✅ Conexión CDP establecida (Legacy Mode).');
+                    } catch (err) {
+                        throw new Error('No se pudo conectar vía CDP.');
                     }
                 }
 
-                sendLog('🏁 Análisis completo.');
-                if (page) try { await page.goto('about:blank'); } catch (e) { }
-                if (browser) await browser.close();
+                // 2. Shared Context Setup (if applicable)
+                if (CONTEXT_STRATEGY === 'shared') {
+                    if (ANALYSIS_ENGINE === 'cdp') {
+                        sharedContext = browser.contexts()[0];
+                    } else {
+                        sharedContext = await getContext(browser, null);
+                    }
+                }
+
+                // 3. Queue Execution
+                const limit = pLimit(MAX_CONCURRENCY);
+                const tasks = urls.map((url: string) => limit(() =>
+                    analyzeSingleUrl(url, browser!, sharedContext, sendLog, sendResult, request)
+                ));
+
+                await Promise.all(tasks);
+
+                sendLog('🏁 Todas las tareas completadas.');
                 controller.close();
 
             } catch (error: any) {
                 console.error('[CRITICAL SERVER ERROR]', error);
-                if (browser) await browser.close();
                 try { controller.enqueue(encoder.encode(`ERROR:${error.message}\n`)); controller.close(); } catch (e) { }
+            } finally {
+                // Cleanup Browser
+                if (browser) {
+                    if (ANALYSIS_ENGINE === 'headless') {
+                        await browser.close();
+                        console.log('Browser cerrado gracefully.');
+                    } else {
+                        // CDP: Don't close the main browser!
+                        if (!browser.isConnected()) await browser.close();
+                    }
+                }
             }
         }
     });

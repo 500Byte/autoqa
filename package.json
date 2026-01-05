@@ -11,7 +11,8 @@
     "preview:electron": "cross-env NODE_ENV=production next build --webpack && electron .",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "cross-env NODE_ENV=production npm run build && electron-builder",
-    "electron:start": "electron ."
+    "electron:start": "electron .",
+    "postinstall": "playwright install chromium"
   },
   "dependencies": {
     "axe-core": "^4.11.0",
@@ -20,6 +21,7 @@
     "electron-updater": "^6.6.2",
     "lucide-react": "^0.554.0",
     "next": "^16.1.1",
+    "p-limit": "^7.2.0",
     "playwright-core": "^1.57.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
