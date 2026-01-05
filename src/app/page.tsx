@@ -132,15 +132,21 @@ export default function Home() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim());
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last potentially incomplete line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
+          if (!line.trim()) continue;
+
           if (line.startsWith('LOG:')) {
             const logMessage = line.substring(4);
             setLogs(prev => [...prev, logMessage]);
@@ -159,11 +165,13 @@ export default function Home() {
               setResults(prev => [...prev, finalResult]);
               setCurrentAnalyzingUrl('');
             } catch (e) {
-              console.error('Error parsing result:', e);
+              console.error('Error parsing result chunk:', e);
             }
           } else if (line.startsWith('ERROR:')) {
             const errorMessage = line.substring(6);
-            throw new Error(errorMessage);
+            // Don't throw immediately, just log it so we can see partial results
+            console.error('Stream Error:', errorMessage);
+            setLogs(prev => [...prev, `❌ CRITICAL ERROR: ${errorMessage}`]);
           }
         }
       }

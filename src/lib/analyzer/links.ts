@@ -9,18 +9,25 @@ export async function checkLinks(links: string[]): Promise<BrokenLink[]> {
 
     const results = await Promise.all(linksToCheck.map(async (link) => {
         try {
-            const res = await fetch(link, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout per link
+
+            const res = await fetch(link, {
+                method: 'HEAD',
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
             return { link, status: res.status, ok: res.ok };
-        } catch (e) {
-            return { link, status: 0, ok: false, error: 'Failed' };
+        } catch (e: any) {
+            return {
+                link,
+                status: 0,
+                ok: false,
+                error: e.name === 'AbortError' ? 'Timeout' : (e.message || 'Failed')
+            };
         }
     }));
 
-    // Return all results (not just broken ones, so we can calculate stats) but the interface currently only tracks broken ones in the result object usually?
-    // Original code:
-    // const brokenLinks = linkResults.filter(l => !l.ok);
-    // It returns { brokenLinks, totalLinksChecked... }
-
-    // Let's force return of all results so the caller can filter
     return results;
 }

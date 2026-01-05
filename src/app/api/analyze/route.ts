@@ -67,84 +67,99 @@ export async function POST(request: Request) {
                         processedCount++;
                         sendLog(`[${processedCount}/${urls.length}] Analizando: ${url}`);
 
-                        // 1. Navegación
-                        try {
-                            await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
-                        } catch (e) {
-                            sendLog('Timeout idle, usando load...');
-                            await page.goto(url, { waitUntil: 'load', timeout: 45000 });
-                        }
+                        // WRAPPER PARA TIMEOUT GLOBAL POR URL (30s)
+                        await Promise.race([
+                            (async () => {
+                                // 1. Navegación
+                                try {
+                                    await page!.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+                                } catch (e) {
+                                    sendLog('Timeout idle, usando load...');
+                                    await page!.goto(url, { waitUntil: 'load', timeout: 20000 });
+                                }
 
-                        // 2. Extracción de Datos (Headings, Title, Meta, Links, Images)
-                        const pageData = await page.evaluate(() => {
-                            const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
-                                tag: h.tagName.toLowerCase(),
-                                text: h.textContent?.trim() || '',
-                                level: parseInt(h.tagName.substring(1))
-                            }));
+                                // 2. Extracción de Datos
+                                const pageData = await page!.evaluate(() => {
+                                    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
+                                        tag: h.tagName.toLowerCase(),
+                                        text: h.textContent?.trim() || '',
+                                        level: parseInt(h.tagName.substring(1))
+                                    }));
 
-                            const links = Array.from(document.querySelectorAll('a[href]')).map(a => (a as HTMLAnchorElement).href);
-                            const images = Array.from(document.querySelectorAll('img')).map(img => ({
-                                src: img.src,
-                                alt: img.alt
-                            }));
+                                    const links = Array.from(document.querySelectorAll('a[href]')).map(a => (a as HTMLAnchorElement).href);
+                                    const images = Array.from(document.querySelectorAll('img')).map(img => ({
+                                        src: img.src,
+                                        alt: img.alt
+                                    }));
 
-                            const meta = document.querySelector('meta[name="description"]');
-                            const metaDescription = meta ? meta.getAttribute('content') : null;
+                                    const meta = document.querySelector('meta[name="description"]');
+                                    const metaDescription = meta ? meta.getAttribute('content') : null;
 
-                            return { headings, links, images, title: document.title, metaDescription };
-                        });
+                                    return { headings, links, images, title: document.title, metaDescription };
+                                });
 
-                        // 3. Análisis SEO
-                        const seoIssues = analyzeSeo({
-                            headings: pageData.headings,
-                            title: pageData.title,
-                            metaDescription: pageData.metaDescription
-                        });
+                                // 3. Análisis SEO
+                                const seoIssues = analyzeSeo({
+                                    headings: pageData.headings,
+                                    title: pageData.title,
+                                    metaDescription: pageData.metaDescription
+                                });
 
-                        // 4. Scroll para Lazy Load (Keep mostly original)
-                        await page.evaluate(async () => {
-                            await new Promise((resolve) => {
-                                let totalHeight = 0;
-                                const distance = 400;
-                                const timer = setInterval(() => {
-                                    const scrollHeight = document.body.scrollHeight;
-                                    window.scrollBy(0, distance);
-                                    totalHeight += distance;
-                                    if (totalHeight >= scrollHeight) {
-                                        clearInterval(timer);
-                                        resolve(true);
-                                    }
-                                }, 50);
-                            });
-                        });
-                        await page.waitForTimeout(500);
+                                // 4. Scroll para Lazy Load
+                                try {
+                                    await page!.evaluate(async () => {
+                                        await new Promise((resolve) => {
+                                            let totalHeight = 0;
+                                            const distance = 400;
+                                            const maxScrolls = 10; // Limit scroll to avoid infinite loops
+                                            let scrolls = 0;
+                                            const timer = setInterval(() => {
+                                                const scrollHeight = document.body.scrollHeight;
+                                                window.scrollBy(0, distance);
+                                                totalHeight += distance;
+                                                scrolls++;
+                                                if (totalHeight >= scrollHeight || scrolls >= maxScrolls) {
+                                                    clearInterval(timer);
+                                                    resolve(true);
+                                                }
+                                            }, 50);
+                                        });
+                                    });
+                                } catch (e) { /* ignore scroll errors */ }
 
-                        // 5. Análisis Accesibilidad
-                        const accessibilityIssues = await runAxeAnalysis(page);
+                                await page!.waitForTimeout(500);
 
-                        // 6. Broken Links
-                        const linkResults = await checkLinks(pageData.links);
-                        const brokenLinks = linkResults.filter(l => !l.ok);
+                                // 5. Análisis Accesibilidad
+                                const accessibilityIssues = await runAxeAnalysis(page!);
 
-                        // Enviar Resultados
-                        sendResult(url, {
-                            headings: pageData.headings,
-                            seoIssues,
-                            accessibilityIssues,
-                            brokenLinks,
-                            totalLinksChecked: linkResults.length,
-                            totalLinksFound: [...new Set(pageData.links)].length,
-                            images: pageData.images,
-                            scripts: []
-                        });
+                                // 6. Broken Links
+                                // checkLinks is now safe and will not throw
+                                const linkResults = await checkLinks(pageData.links);
+                                const brokenLinks = linkResults.filter(l => !l.ok);
 
-                        sendLog(`✅ OK: ${url} (${accessibilityIssues.length} violaciones)`);
+                                // Enviar Resultados Exitosos
+                                sendResult(url, {
+                                    headings: pageData.headings,
+                                    seoIssues,
+                                    accessibilityIssues,
+                                    brokenLinks,
+                                    totalLinksChecked: linkResults.length,
+                                    totalLinksFound: [...new Set(pageData.links)].length,
+                                    images: pageData.images,
+                                    scripts: []
+                                });
+
+                                sendLog(`✅ OK: ${url} (${accessibilityIssues.length} violaciones)`);
+                            })(),
+
+                            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de análisis (30s)')), 30000))
+                        ]);
 
                     } catch (error: any) {
                         console.error(`Error en ${url}:`, error);
                         sendLog(`❌ Falló ${url}: ${error.message}`);
 
+                        // Enviar Resultado de Error para mantener consistencia en frontend
                         sendResult(url, {
                             error: error.message,
                             accessibilityIssues: [],
@@ -157,6 +172,7 @@ export async function POST(request: Request) {
                             scripts: []
                         });
 
+                        // Intentar recuperar el navegador
                         try { if (page) await page.goto('about:blank'); } catch (e) { }
                     }
                 }

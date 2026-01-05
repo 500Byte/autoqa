@@ -4,18 +4,28 @@ import { AxeViolation } from "@/types";
 
 export async function runAxeAnalysis(page: Page): Promise<AxeViolation[]> {
     try {
-        // Inject Axe Core
-        await page.addScriptTag({ content: AXE_CORE_SOURCE });
+        // Inject Axe Core with error handling
+        try {
+            await page.addScriptTag({ content: AXE_CORE_SOURCE });
+        } catch (injectError) {
+            console.error('Failed to inject Axe Core:', injectError);
+            return [];
+        }
 
-        // Run Analysis
+        // Run Analysis with safely
         const axeResults = await page.evaluate(async () => {
             // @ts-ignore
             if (typeof window.axe === 'undefined') return { violations: [] };
-            // @ts-ignore
-            return await window.axe.run(document, {
-                runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'best-practice'] },
-                resultTypes: ['violations']
-            });
+
+            try {
+                // @ts-ignore
+                return await window.axe.run(document, {
+                    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'best-practice'] },
+                    resultTypes: ['violations']
+                });
+            } catch (runError) {
+                return { violations: [] };
+            }
         }) as any;
 
         if (!axeResults || !axeResults.violations) return [];
