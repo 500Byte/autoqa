@@ -1,49 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import {
-  Globe,
-  AlertCircle,
-  Search,
-  Square,
-  Sparkles,
-  Zap,
-  CheckCircle2,
-  ArrowRight,
-  Loader2,
-  Terminal,
-  Activity,
-  Check,
-  Minus,
-  ArrowLeft,
-  CornerUpLeft
-} from 'lucide-react';
-
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-interface SitemapResponse {
-  urls: string[];
-  count: number;
-  sitemapUrl: string;
-  error?: string;
-}
-
-interface AnalysisResult {
-  url: string;
-  headings: { tag: string; text: string; level: number }[];
-  seoIssues: string[];
-  accessibilityIssues: any[];
-  brokenLinks: { link: string; status: number; ok: boolean; error?: string }[];
-  totalLinksChecked: number;
-  totalLinksFound: number;
-  error?: string;
-}
+import { HeroInput } from "@/components/features/HeroInput";
+import { UrlSelection } from "@/components/features/UrlSelection";
+import { AnalysisDashboard } from "@/components/features/AnalysisDashboard";
+import { SitemapResponse, AnalysisResult } from "@/types";
 
 export default function Home() {
   const [domain, setDomain] = useState('');
@@ -58,13 +20,10 @@ export default function Home() {
   const [currentAnalyzingUrl, setCurrentAnalyzingUrl] = useState<string>('');
   const [logs, setLogs] = useState<string[]>([]);
   const [results, setResults] = useState<AnalysisResult[]>([]);
-  const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
-  const logEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
+  // logEndRef and expandedResults are now managed within AnalysisDashboard
+  // useEffect for logs is also moved to AnalysisDashboard
 
   const handleFetchSitemap = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,7 +183,6 @@ export default function Home() {
   const isInitialState = sitemapUrls.length === 0;
   const isSelectionState = sitemapUrls.length > 0 && !analyzing && results.length === 0;
   const isAnalysisState = analyzing || results.length > 0;
-  const progressPercentage = selectedUrls.size > 0 ? (results.length / selectedUrls.size) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -233,127 +191,49 @@ export default function Home() {
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center text-white">
-              <Sparkles className="h-4 w-4" />
+              {/* Using a simple div instead of imported icon to keep it light or import Sparkles if needed */}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
             </div>
             <span className="font-semibold text-base">AutoQA</span>
           </div>
           <div className="flex items-center gap-4">
             <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Docs</a>
-            <Badge variant="secondary" className="gap-1">
-              <Zap className="h-3 w-3" /> Beta
-            </Badge>
+            <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg> Beta
+            </span>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-6 pt-24 pb-16">
-
         {/* State 1: Hero / Input */}
         <div className={cn(
           "transition-all duration-300",
           isInitialState ? "opacity-100" : "opacity-0 hidden"
         )}>
-          <div className="max-w-2xl mx-auto text-center space-y-6">
-            <div className="space-y-3">
-              <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-                Quality Assurance <br />
-                <span className="text-blue-600">Reimagined.</span>
-              </h1>
-              <p className="text-lg text-gray-600">
-                Automated SEO, accessibility, and link checking for modern web teams.
-              </p>
-            </div>
-
-            <Card className="p-2">
-              <form onSubmit={handleFetchSitemap} className="flex gap-2">
-                <div className="relative flex-1">
-                  <Globe className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                  <Input
-                    className="pl-10 h-10"
-                    placeholder="mynaui.com"
-                    value={domain}
-                    onChange={(e) => setDomain(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" disabled={loadingSitemap} className="bg-blue-600 hover:bg-blue-700 text-white">
-                  {loadingSitemap ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Analysis"}
-                </Button>
-              </form>
-            </Card>
-
-            {sitemapError && (
-              <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 p-3 rounded-md text-sm">
-                <AlertCircle className="h-4 w-4" />
-                <span>{sitemapError}</span>
-              </div>
-            )}
-          </div>
+          <HeroInput
+            domain={domain}
+            setDomain={setDomain}
+            loading={loadingSitemap}
+            error={sitemapError}
+            onSubmit={handleFetchSitemap}
+          />
         </div>
 
         {/* State 2: Selection */}
         <div className={cn(
-          "transition-all duration-300 max-w-4xl mx-auto",
+          "transition-all duration-300",
           isSelectionState ? "opacity-100" : "opacity-0 hidden"
         )}>
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-start gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleGoBackToInput}
-                className="mt-1 h-8 w-8 hover:bg-gray-100 rounded-full"
-                title="Volver"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-500" />
-              </Button>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Select Pages</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Found {sitemapUrls.length} URLs • {selectedUrls.size} selected
-                  <span className="text-gray-400 ml-2">• Shift+Click para selección por lote</span>
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleSelectAll}>
-                <Check className="h-4 w-4 mr-1" /> Todas
-              </Button>
-              <Button variant="outline" onClick={handleDeselectAll}>
-                <Minus className="h-4 w-4 mr-1" /> Ninguna
-              </Button>
-              <Button onClick={handleAnalyze} disabled={selectedUrls.size === 0} className="bg-blue-600 hover:bg-blue-700 text-white">
-                Analizar {selectedUrls.size} <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            </div>
-          </div>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="max-h-[500px] overflow-y-auto space-y-1">
-                {sitemapUrls.map((url, index) => (
-                  <div
-                    key={url}
-                    onClick={(e) => handleToggleUrl(url, index, e)}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-all duration-200 text-sm select-none",
-                      selectedUrls.has(url)
-                        ? "bg-blue-50 text-blue-900 scale-[0.99]"
-                        : "hover:bg-gray-50 hover:scale-[1.01]"
-                    )}
-                  >
-                    <div className={cn(
-                      "h-4 w-4 rounded border flex items-center justify-center flex-shrink-0 transition-all duration-200",
-                      selectedUrls.has(url) ? "bg-blue-600 border-blue-600 scale-110" : "border-gray-300"
-                    )}>
-                      {selectedUrls.has(url) && <Check className="h-3 w-3 text-white" />}
-                    </div>
-                    <span className="truncate">{url}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <UrlSelection
+            sitemapUrls={sitemapUrls}
+            selectedUrls={selectedUrls}
+            onToggleUrl={handleToggleUrl}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onGoBack={handleGoBackToInput}
+            onAnalyze={handleAnalyze}
+          />
         </div>
 
         {/* State 3: Analysis Dashboard */}
@@ -361,207 +241,17 @@ export default function Home() {
           "transition-all duration-300",
           isAnalysisState ? "opacity-100" : "opacity-0 hidden"
         )}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            {/* Left Column: Status */}
-            <div className="lg:col-span-1 space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-blue-600" />
-                    Live Status
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">Progress</span>
-                      <span className="text-sm font-semibold">{Math.round(progressPercentage)}%</span>
-                    </div>
-                    <Progress value={progressPercentage} />
-                    <p className="text-xs text-gray-500 mt-2">
-                      {results.length} of {selectedUrls.size} completed
-                    </p>
-                  </div>
-
-                  {currentAnalyzingUrl && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md animate-in fade-in duration-300">
-                      <p className="text-xs font-medium text-blue-900 mb-1">Currently analyzing:</p>
-                      <p className="text-xs text-blue-700 truncate">{currentAnalyzingUrl}</p>
-                    </div>
-                  )}
-
-                  {analyzing ? (
-                    <Button onClick={handleStopAnalysis} className="w-full bg-red-600 hover:bg-red-700 text-white">
-                      <Square className="h-4 w-4 mr-2 fill-current" /> Stop Analysis
-                    </Button>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <CheckCircle2 className="h-4 w-4" />
-                      <span>Analysis complete</span>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-900 rounded-md p-3 max-h-[300px] overflow-hidden flex flex-col">
-                    <div className="flex items-center gap-2 text-gray-400 border-b border-gray-800 pb-2 mb-2">
-                      <Terminal className="h-3 w-3" />
-                      <span className="text-xs font-mono">Console</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto font-mono text-xs space-y-1">
-                      {logs.slice(-10).map((log, i) => (
-                        <div key={i} className="text-gray-300">
-                          {log}
-                        </div>
-                      ))}
-                      <div ref={logEndRef} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right Column: Results */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {!analyzing && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleGoBackToSelection}
-                      className="h-8 w-8 hover:bg-gray-100 rounded-full"
-                      title="Nueva Selección"
-                    >
-                      <CornerUpLeft className="h-4 w-4 text-gray-500" />
-                    </Button>
-                  )}
-                  <h2 className="text-xl font-bold text-gray-900">Results</h2>
-                </div>
-                <Badge variant="outline">
-                  {results.length} / {selectedUrls.size}
-                </Badge>
-              </div>
-
-              <div className="space-y-3">
-                {/* Actual results */}
-                {results.map((result, idx) => (
-                  <Card key={idx} className="border-l-4 border-l-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <CardHeader className="bg-gray-50 pb-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                          <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Globe className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                            <a href={result.url} target="_blank" className="hover:underline truncate">
-                              {new URL(result.url).pathname}
-                            </a>
-                          </CardTitle>
-                          <CardDescription className="text-xs truncate mt-1">{result.url}</CardDescription>
-                        </div>
-                        <div className="flex gap-2 flex-shrink-0">
-                          <Badge variant={(result.seoIssues || []).length ? "destructive" : "secondary"} className="text-xs">
-                            SEO: {(result.seoIssues || []).length}
-                          </Badge>
-                          <Badge variant={(result.accessibilityIssues || []).length ? "destructive" : "secondary"} className="text-xs">
-                            A11y: {(result.accessibilityIssues || []).length}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardHeader>
-
-                    {((result.seoIssues || []).length > 0 || (result.accessibilityIssues || []).length > 0) && (
-                      <CardContent className="pt-4 space-y-3">
-                        {(result.seoIssues || []).length > 0 && (
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-semibold flex items-center gap-2">
-                              <Search className="h-4 w-4" /> SEO Issues
-                            </h4>
-                            <ul className="space-y-1">
-                              {result.seoIssues.map((issue, i) => (
-                                <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                                  <span className="h-1 w-1 rounded-full bg-red-500 mt-2 flex-shrink-0" />
-                                  {issue}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {(result.accessibilityIssues || []).length > 0 && (
-                          <div className="space-y-2">
-                            <h4 className="text-sm font-semibold flex items-center gap-2">
-                              <AlertCircle className="h-4 w-4" /> Accessibility
-                            </h4>
-                            <div className="space-y-2">
-                              {(result.accessibilityIssues || []).slice(0, 3).map((issue, i) => (
-                                <div key={i} className="bg-gray-50 border p-3 rounded-md text-sm transition-all duration-200 hover:shadow-sm">
-                                  <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium">{issue.id}</span>
-                                    <Badge variant="outline" className="text-[10px]">{issue.impact}</Badge>
-                                  </div>
-                                  <p className="text-gray-600 text-xs">{issue.description}</p>
-                                </div>
-                              ))}
-                              {(result.accessibilityIssues || []).length > 3 && (
-                                <div>
-                                  {expandedResults.has(idx) && (result.accessibilityIssues || []).slice(3).map((issue, i) => (
-                                    <div key={i + 3} className="bg-gray-50 border p-3 rounded-md text-sm mb-2 transition-all duration-200 hover:shadow-sm animate-in fade-in slide-in-from-top-2">
-                                      <div className="flex justify-between items-center mb-1">
-                                        <span className="font-medium">{issue.id}</span>
-                                        <Badge variant="outline" className="text-[10px]">{issue.impact}</Badge>
-                                      </div>
-                                      <p className="text-gray-600 text-xs">{issue.description}</p>
-                                    </div>
-                                  ))}
-                                  <button
-                                    onClick={() => {
-                                      const newExpanded = new Set(expandedResults);
-                                      if (newExpanded.has(idx)) {
-                                        newExpanded.delete(idx);
-                                      } else {
-                                        newExpanded.add(idx);
-                                      }
-                                      setExpandedResults(newExpanded);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium w-full text-center py-2 hover:bg-blue-50 rounded-md transition-colors"
-                                  >
-                                    {expandedResults.has(idx) ? '− Show less' : `+ Show ${(result.accessibilityIssues || []).length - 3} more`}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
-                ))}
-
-                {/* Show skeleton loaders for pending results */}
-                {analyzing && selectedUrls.size > results.length && Array.from({ length: Math.min(3, selectedUrls.size - results.length) }).map((_, i) => (
-                  <Card key={`skeleton-${i}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-3/4" />
-                          <Skeleton className="h-3 w-1/2" />
-                        </div>
-                        <div className="flex gap-2">
-                          <Skeleton className="h-6 w-16" />
-                          <Skeleton className="h-6 w-16" />
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <Skeleton className="h-24 w-full" />
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </div>
+          <AnalysisDashboard
+            analyzing={analyzing}
+            currentAnalyzingUrl={currentAnalyzingUrl}
+            logs={logs}
+            results={results}
+            selectedUrlsSize={selectedUrls.size}
+            onStopAnalysis={handleStopAnalysis}
+            onGoBack={handleGoBackToSelection}
+          />
         </div>
-
-      </main >
-    </div >
+      </main>
+    </div>
   );
 }

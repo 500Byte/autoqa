@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
 import { chromium, Browser, Page } from 'playwright-core';
-// Importación de la constante estática de Axe que ya resolvió el error 'b is not defined'
-import { AXE_CORE_SOURCE } from '@/lib/axe-constant';
+import { analyzeSeo } from '@/lib/analyzer/seo';
+import { runAxeAnalysis } from '@/lib/analyzer/accessibility';
+import { checkLinks } from '@/lib/analyzer/links';
+import { Heading } from '@/types';
 
 export const dynamic = 'force-dynamic';
-
-// --- Interfaces ---
-interface Heading { tag: string; text: string; level: number; }
-interface BrokenLink { link: string; status: number; ok: boolean; error?: string; }
-interface AxeViolation { id: string; impact: string; description: string; nodes?: any[]; }
 
 export async function POST(request: Request) {
     const { urls } = await request.json();
@@ -61,7 +58,6 @@ export async function POST(request: Request) {
                 let processedCount = 0;
 
                 for (const url of urls) {
-                    // Check if the request has been aborted by the user
                     if (request.signal.aborted) {
                         sendLog('🛑 Análisis cancelado por el usuario (AbortSignal recibida).');
                         break;
@@ -79,7 +75,7 @@ export async function POST(request: Request) {
                             await page.goto(url, { waitUntil: 'load', timeout: 45000 });
                         }
 
-                        // 2. Extracción de Datos SEO / Estructura (Evita crash en Frontend)
+                        // 2. Extracción de Datos (Headings, Title, Meta, Links, Images)
                         const pageData = await page.evaluate(() => {
                             const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
                                 tag: h.tagName.toLowerCase(),
@@ -88,52 +84,25 @@ export async function POST(request: Request) {
                             }));
 
                             const links = Array.from(document.querySelectorAll('a[href]')).map(a => (a as HTMLAnchorElement).href);
-
                             const images = Array.from(document.querySelectorAll('img')).map(img => ({
                                 src: img.src,
                                 alt: img.alt
                             }));
 
-                            return { headings, links, images };
+                            const meta = document.querySelector('meta[name="description"]');
+                            const metaDescription = meta ? meta.getAttribute('content') : null;
+
+                            return { headings, links, images, title: document.title, metaDescription };
                         });
 
-                        // Lógica SEO básica
-                        const seoIssues: string[] = [];
-                        let previousLevel = 0;
-                        pageData.headings.forEach((h, index) => {
-                            if (index === 0) {
-                                if (h.level !== 1) seoIssues.push(`First heading is ${h.tag}, should be h1.`);
-                            } else {
-                                if (h.level > previousLevel + 1) {
-                                    seoIssues.push(`Skipped level: ${previousLevel} -> ${h.level} (at "${h.text.substring(0, 30)}...")`);
-                                }
-                            }
-                            previousLevel = h.level;
+                        // 3. Análisis SEO
+                        const seoIssues = analyzeSeo({
+                            headings: pageData.headings,
+                            title: pageData.title,
+                            metaDescription: pageData.metaDescription
                         });
 
-                        const h1Count = pageData.headings.filter(h => h.level === 1).length;
-                        if (h1Count > 1) seoIssues.push(`Found ${h1Count} H1 tags.`);
-                        if (h1Count === 0) seoIssues.push('No H1 tag found.');
-
-                        const pageTitle = await page.title();
-                        if (!pageTitle) seoIssues.push('Page title is missing.');
-
-                        const metaDescription = await page.evaluate(`
-                            (() => {
-                                const meta = document.querySelector('meta[name="description"]');
-                                return meta ? meta.getAttribute('content') : null;
-                            })()
-                        `) as string | null;
-
-                        if (!metaDescription) {
-                            seoIssues.push('Meta description is missing.');
-                        } else if (metaDescription.length < 50) {
-                            seoIssues.push('Meta description is too short.');
-                        } else if (metaDescription.length > 160) {
-                            seoIssues.push('Meta description is too long.');
-                        }
-
-                        // 3. Scroll para Lazy Load
+                        // 4. Scroll para Lazy Load (Keep mostly original)
                         await page.evaluate(async () => {
                             await new Promise((resolve) => {
                                 let totalHeight = 0;
@@ -151,48 +120,23 @@ export async function POST(request: Request) {
                         });
                         await page.waitForTimeout(500);
 
-                        // 4. Inyección y Ejecución de Axe
-                        await page.addScriptTag({ content: AXE_CORE_SOURCE });
-                        const axeResults = await page.evaluate(async () => {
-                            // @ts-ignore
-                            if (typeof window.axe === 'undefined') return { violations: [] };
-                            // @ts-ignore
-                            return await window.axe.run(document, {
-                                runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'best-practice'] },
-                                resultTypes: ['violations']
-                            });
-                        }) as any;
+                        // 5. Análisis Accesibilidad
+                        const accessibilityIssues = await runAxeAnalysis(page);
 
-                        const accessibilityIssues = axeResults.violations.map((v: any) => ({
-                            id: v.id,
-                            impact: v.impact,
-                            description: v.description,
-                            nodes: v.nodes
-                        }));
-
-                        // 5. Broken Links (Check de los primeros 20 para velocidad)
-                        const uniqueLinks = [...new Set(pageData.links)];
-                        const linksToCheck = uniqueLinks.slice(0, 20);
-                        const linkResults = await Promise.all(linksToCheck.map(async (link) => {
-                            try {
-                                const res = await fetch(link, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
-                                return { link, status: res.status, ok: res.ok };
-                            } catch (e) {
-                                return { link, status: 0, ok: false, error: 'Failed' };
-                            }
-                        }));
+                        // 6. Broken Links
+                        const linkResults = await checkLinks(pageData.links);
                         const brokenLinks = linkResults.filter(l => !l.ok);
 
-                        // Construcción del objeto RESULTADO COMPLETO (Satisface al Frontend)
+                        // Enviar Resultados
                         sendResult(url, {
                             headings: pageData.headings,
                             seoIssues,
                             accessibilityIssues,
                             brokenLinks,
-                            totalLinksChecked: linksToCheck.length,
-                            totalLinksFound: uniqueLinks.length,
-                            images: pageData.images, // Requerido por UI
-                            scripts: []              // Requerido por UI
+                            totalLinksChecked: linkResults.length,
+                            totalLinksFound: [...new Set(pageData.links)].length,
+                            images: pageData.images,
+                            scripts: []
                         });
 
                         sendLog(`✅ OK: ${url} (${accessibilityIssues.length} violaciones)`);
@@ -201,7 +145,6 @@ export async function POST(request: Request) {
                         console.error(`Error en ${url}:`, error);
                         sendLog(`❌ Falló ${url}: ${error.message}`);
 
-                        // Enviar esquema completo incluso en error para evitar Pantalla Blanca
                         sendResult(url, {
                             error: error.message,
                             accessibilityIssues: [],

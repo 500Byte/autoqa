@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Silencia el warning de Turbopack
+    turbopack: {},
+    
     // Don't use static export because we need API routes
     images: {
         unoptimized: true,
