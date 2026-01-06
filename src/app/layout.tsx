@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AutoQA - Web Analysis Tool",
-  description: "Comprehensive SEO, Accessibility, and Link analysis for your website.",
+  title: "AutoQA - Herramienta de Análisis Web",
+  description: "Análisis integral de SEO, accesibilidad y enlaces para tu sitio web.",
   icons: {
     icon: [
       { url: "/favicon.ico" },
@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body
         className={`${inter.variable} font-sans antialiased`}
       >

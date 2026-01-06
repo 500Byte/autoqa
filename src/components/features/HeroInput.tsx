@@ -16,11 +16,11 @@ export function HeroInput({ domain, setDomain, loading, error, onSubmit }: HeroI
         <div className="max-w-2xl mx-auto text-center space-y-6">
             <div className="space-y-3">
                 <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
-                    Quality Assurance <br />
-                    <span className="text-blue-600">Reimagined.</span>
+                    Control de Calidad <br />
+                    <span className="text-blue-600">Reinventado.</span>
                 </h1>
                 <p className="text-lg text-gray-600">
-                    Automated SEO, accessibility, and link checking for modern web teams.
+                    Análisis automatizado de SEO, accesibilidad y enlaces para equipos web modernos.
                 </p>
             </div>
 
@@ -37,7 +37,7 @@ export function HeroInput({ domain, setDomain, loading, error, onSubmit }: HeroI
                         />
                     </div>
                     <Button type="submit" disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white">
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Start Analysis"}
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Iniciar Análisis"}
                     </Button>
                 </form>
             </Card>

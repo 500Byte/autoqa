@@ -62,36 +62,36 @@ export function AnalysisDashboard({
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Activity className="h-4 w-4 text-blue-600" />
-                            Live Status
+                            Estado en Vivo
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-gray-600">Progress</span>
+                                <span className="text-sm text-gray-600">Progreso</span>
                                 <span className="text-sm font-semibold">{Math.round(progressPercentage)}%</span>
                             </div>
                             <Progress value={progressPercentage} />
                             <p className="text-xs text-gray-500 mt-2">
-                                {results.length} of {selectedUrlsSize} completed
+                                {results.length} de {selectedUrlsSize} completadas
                             </p>
                         </div>
 
                         {currentAnalyzingUrl && (
                             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md animate-in fade-in duration-300">
-                                <p className="text-xs font-medium text-blue-900 mb-1">Currently analyzing:</p>
+                                <p className="text-xs font-medium text-blue-900 mb-1">Analizando actualmente:</p>
                                 <p className="text-xs text-blue-700 truncate">{currentAnalyzingUrl}</p>
                             </div>
                         )}
 
                         {analyzing ? (
                             <Button onClick={onStopAnalysis} className="w-full bg-red-600 hover:bg-red-700 text-white">
-                                <Square className="h-4 w-4 mr-2 fill-current" /> Stop Analysis
+                                <Square className="h-4 w-4 mr-2 fill-current" /> Detener Análisis
                             </Button>
                         ) : (
                             <div className="flex items-center gap-2 text-sm text-green-600">
                                 <CheckCircle2 className="h-4 w-4" />
-                                <span>Analysis complete</span>
+                                <span>Análisis completado</span>
                             </div>
                         )}
 
@@ -128,7 +128,7 @@ export function AnalysisDashboard({
                                 <CornerUpLeft className="h-4 w-4 text-gray-500" />
                             </Button>
                         )}
-                        <h2 className="text-xl font-bold text-gray-900">Results</h2>
+                        <h2 className="text-xl font-bold text-gray-900">Resultados</h2>
                     </div>
                     <Badge variant="outline">
                         {results.length} / {selectedUrlsSize}
@@ -166,7 +166,7 @@ export function AnalysisDashboard({
                                     {(result.seoIssues || []).length > 0 && (
                                         <div className="space-y-2">
                                             <h4 className="text-sm font-semibold flex items-center gap-2">
-                                                <Search className="h-4 w-4" /> SEO Issues
+                                                <Search className="h-4 w-4" /> Problemas de SEO
                                             </h4>
                                             <ul className="space-y-1">
                                                 {result.seoIssues.map((issue, i) => (
@@ -182,7 +182,7 @@ export function AnalysisDashboard({
                                     {(result.accessibilityIssues || []).length > 0 && (
                                         <div className="space-y-2">
                                             <h4 className="text-sm font-semibold flex items-center gap-2">
-                                                <AlertCircle className="h-4 w-4" /> Accessibility
+                                                <AlertCircle className="h-4 w-4" /> Accesibilidad
                                             </h4>
                                             <div className="space-y-2">
                                                 {(result.accessibilityIssues || []).slice(0, 3).map((issue, i) => (
@@ -209,7 +209,7 @@ export function AnalysisDashboard({
                                                             onClick={() => toggleExpand(idx)}
                                                             className="text-xs text-blue-600 hover:text-blue-700 font-medium w-full text-center py-2 hover:bg-blue-50 rounded-md transition-colors"
                                                         >
-                                                            {expandedResults.has(idx) ? '− Show less' : `+ Show ${(result.accessibilityIssues || []).length - 3} more`}
+                                                            {expandedResults.has(idx) ? '− Mostrar menos' : `+ Mostrar ${(result.accessibilityIssues || []).length - 3} más`}
                                                         </button>
                                                     </div>
                                                 )}

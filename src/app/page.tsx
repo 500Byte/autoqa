@@ -205,7 +205,7 @@ export default function Home() {
             <span className="font-semibold text-base">AutoQA</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Docs</a>
+            <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Documentación</a>
             <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg> Beta
             </span>

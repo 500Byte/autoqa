@@ -36,9 +36,9 @@ export function UrlSelection({
                         <ArrowLeft className="h-5 w-5 text-gray-500" />
                     </Button>
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900">Select Pages</h2>
+                        <h2 className="text-2xl font-bold text-gray-900">Seleccionar Páginas</h2>
                         <p className="text-sm text-gray-600 mt-1">
-                            Found {sitemapUrls.length} URLs • {selectedUrls.size} selected
+                            Se encontraron {sitemapUrls.length} URLs • {selectedUrls.size} seleccionadas
                             <span className="text-gray-400 ml-2">• Shift+Click para selección por lote</span>
                         </p>
                     </div>
