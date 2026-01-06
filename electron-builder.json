@@ -25,25 +25,23 @@
             "provider": "github",
             "owner": "500Byte",
             "repo": "autoqa",
-            "releaseType": "prerelease"
+            "releaseType": "draft"
         }
     ],
     "win": {
         "target": [
-            "nsis",
-            "zip",
             {
-                "target": "dir",
+                "target": "nsis",
                 "arch": [
                     "x64"
                 ]
             }
         ],
+        "icon": "build/icon.ico",
+        "artifactName": "${productName}-Setup-${version}.${ext}",
         "publish": [
             "github"
-        ],
-        "icon": "public/favicon.ico",
-        "artifactName": "${productName}-Setup-${version}.${ext}"
+        ]
     },
     "nsis": {
         "oneClick": false,
@@ -52,20 +50,20 @@
         "createStartMenuShortcut": true,
         "shortcutName": "AutoQA"
     },
-    "mac": {
-        "target": [
-            "dmg",
-            "zip"
-        ],
-        "icon": "public/favicon.ico",
-        "category": "public.app-category.developer-tools"
-    },
     "linux": {
         "target": [
-            "AppImage",
-            "zip"
+            {
+                "target": "AppImage",
+                "arch": [
+                    "x64"
+                ]
+            }
         ],
-        "icon": "public/favicon.ico",
-        "category": "Development"
+        "icon": "build/icon.png",
+        "category": "Development",
+        "artifactName": "${productName}-${version}.${ext}",
+        "publish": [
+            "github"
+        ]
     }
 }

@@ -43,7 +43,7 @@ if (!gotTheLock) {
                 contextIsolation: true,
                 sandbox: true,
             },
-            icon: path.join(__dirname, 'public', 'favicon.ico'),
+            icon: path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
             show: false,
             backgroundColor: '#ffffff',
         });
@@ -127,12 +127,12 @@ if (!gotTheLock) {
             try {
                 const { startServer } = require('./server.js');
                 const serverInstance = await startServer();
-                
+
                 // Keep reference for cleanup
                 if (serverInstance && serverInstance.close) {
                     app.serverInstance = serverInstance;
                 }
-                
+
                 console.log('Next.js production server ready!');
                 resolve();
             } catch (error) {
@@ -144,30 +144,52 @@ if (!gotTheLock) {
 
     // UPDATE CONFIGURATION
     autoUpdater.autoDownload = false;
-    autoUpdater.allowPrerelease = true; 
+    autoUpdater.allowPrerelease = true;
+
+    // Logging para debug
+    autoUpdater.logger = console;
+
+    // Event listeners adicionales
+    autoUpdater.on('checking-for-update', () => {
+        console.log('Checking for updates...');
+    });
+
+    autoUpdater.on('update-not-available', () => {
+        console.log('App is up to date.');
+    });
+
+    autoUpdater.on('error', (error) => {
+        console.error('Update error:', error);
+    });
 
     // UPDATE EVENTS
-    autoUpdater.on('update-available', () => {
+    // Modificar update-available para mostrar versión
+    autoUpdater.on('update-available', (info) => {
+        console.log('Update available:', info.version);
         dialog.showMessageBox({
             type: 'info',
             title: 'Actualización Disponible',
-            message: 'Hay una nueva versión de AutoQA. ¿Quieres descargarla ahora?',
+            message: `Nueva versión ${info.version} disponible. ¿Descargar ahora?`,
             buttons: ['Sí', 'No']
         }).then((result) => {
-            if (result.response === 0) { 
+            if (result.response === 0) {
                 autoUpdater.downloadUpdate();
             }
         });
     });
 
-    autoUpdater.on('update-downloaded', () => {
+    // Modificar update-downloaded para mostrar versión
+    autoUpdater.on('update-downloaded', (info) => {
+        console.log('Update downloaded:', info.version);
         dialog.showMessageBox({
             type: 'info',
             title: 'Actualización Lista',
-            message: 'La actualización se ha descargado. La aplicación se reiniciará para instalarla.',
-            buttons: ['Reiniciar']
-        }).then(() => {
-            autoUpdater.quitAndInstall();
+            message: `Versión ${info.version} descargada. Reiniciar para instalar.`,
+            buttons: ['Reiniciar', 'Más Tarde']
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall();
+            }
         });
     });
 
@@ -218,7 +240,7 @@ if (!gotTheLock) {
 
     app.on('before-quit', (event) => {
         event.preventDefault();
-        
+
         // Attempt graceful cleanup with timeout
         const cleanupPromise = new Promise((resolve) => {
             if (app.serverInstance && app.serverInstance.close) {
@@ -237,7 +259,7 @@ if (!gotTheLock) {
             cleanupPromise,
             new Promise(resolve => setTimeout(resolve, 2000))
         ]).then(() => {
-            app.exit(0); 
+            app.exit(0);
         });
     });
 
