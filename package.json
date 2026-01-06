@@ -11,7 +11,8 @@
     "preview:electron": "cross-env NODE_ENV=production next build --webpack && electron .",
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "cross-env NODE_ENV=production npm run build && electron-builder",
-    "electron:start": "electron ."
+    "electron:start": "electron .",
+    "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "axe-core": "^4.11.0",
