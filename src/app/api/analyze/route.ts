@@ -51,6 +51,9 @@ async function analyzeSingleUrl(
         // Create Page
         page = await context.newPage();
 
+        // Check abort before heavy operations
+        if (request.signal.aborted) throw new Error('Aborted by user');
+
         // TIMEOUT WRAPPER (30s)
         await Promise.race([
             (async () => {
@@ -58,9 +61,12 @@ async function analyzeSingleUrl(
                 try {
                     await page!.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
                 } catch (e) {
+                    if (request.signal.aborted) throw new Error('Aborted by user');
                     sendLog(`⚠️ Timeout idle en ${url}, reintentando con 'load'...`);
                     await page!.goto(url, { waitUntil: 'load', timeout: 20000 });
                 }
+
+                if (request.signal.aborted) throw new Error('Aborted by user');
 
                 // Data Extraction
                 const pageData = await page!.evaluate(() => {
@@ -112,6 +118,7 @@ async function analyzeSingleUrl(
                 } catch (e) { /* ignore */ }
 
                 await page!.waitForTimeout(500);
+                if (request.signal.aborted) throw new Error('Aborted by user');
 
                 // Accessibility Analysis
                 const accessibilityIssues = await runAxeAnalysis(page!);
@@ -139,6 +146,11 @@ async function analyzeSingleUrl(
         ]);
 
     } catch (error: any) {
+        // Silent exit if aborted
+        if (error.message === 'Aborted by user' || request.signal.aborted) {
+            return;
+        }
+
         console.error(`Error procesando ${url}:`, error);
         sendLog(`❌ Error en ${url}: ${error.message}`);
 
@@ -175,11 +187,29 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         async start(controller) {
+            // STATE FLAG TO PREVENT DOUBLE CLOSE
+            let isControllerClosed = false;
+
+            // HANDLE ABORT SIGNAL
+            request.signal.addEventListener('abort', () => {
+                isControllerClosed = true;
+                // Note: We don't call controller.close() here because the stream is effectively dead/closed by the client
+            });
+
+            const safeClose = () => {
+                if (!isControllerClosed && !request.signal.aborted) {
+                    try { controller.close(); } catch (e) { console.error('Error closing controller:', e); }
+                    isControllerClosed = true;
+                }
+            };
+
             const sendLog = (message: string) => {
+                if (isControllerClosed || request.signal.aborted) return;
                 const timestamp = new Date().toLocaleTimeString();
                 try { controller.enqueue(encoder.encode(`LOG:${timestamp} ${message}\n`)); } catch (e) { }
             };
             const sendResult = (url: string, result: any) => {
+                if (isControllerClosed || request.signal.aborted) return;
                 try { controller.enqueue(encoder.encode(`RESULT:${JSON.stringify({ url, result })}\n`)); } catch (e) { }
             };
 
@@ -193,11 +223,6 @@ export async function POST(request: Request) {
                 if (ANALYSIS_ENGINE === 'headless') {
                     // Try/Catch specific to launch
                     try {
-                        const executables = {
-                            // Assuming standard paths or playwright-core finding it. 
-                            // If completely failing, user might need to install browsers.
-                            headless: true
-                        };
                         browser = await chromium.launch({
                             headless: true,
                             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -233,21 +258,42 @@ export async function POST(request: Request) {
 
                 await Promise.all(tasks);
 
-                sendLog('🏁 Todas las tareas completadas.');
-                controller.close();
+                // Shared Context Cleanup
+                if (CONTEXT_STRATEGY === 'shared' && sharedContext) {
+                    try {
+                        await sharedContext.close();
+                        console.log('Shared context cerrado correctamente.');
+                    } catch (e) {
+                        console.error('Error cerrando shared context:', e);
+                    }
+                }
+
+                // Only send Log and Close if NOT aborted
+                if (!request.signal.aborted) {
+                    sendLog('🏁 Todas las tareas completadas.');
+                    safeClose();
+                }
 
             } catch (error: any) {
-                console.error('[CRITICAL SERVER ERROR]', error);
-                try { controller.enqueue(encoder.encode(`ERROR:${error.message}\n`)); controller.close(); } catch (e) { }
+                console.error('[SERVER ERROR]', error);
+
+                // Enqueue error only if stream is still open and not aborted
+                if (!isControllerClosed && !request.signal.aborted) {
+                    try {
+                        controller.enqueue(encoder.encode(`ERROR:${error.message}\n`));
+                    } catch (e) { }
+                    safeClose();
+                }
             } finally {
                 // Cleanup Browser
                 if (browser) {
-                    if (ANALYSIS_ENGINE === 'headless') {
-                        await browser.close();
-                        console.log('Browser cerrado gracefully.');
-                    } else {
-                        // CDP: Don't close the main browser!
-                        if (!browser.isConnected()) await browser.close();
+                    try {
+                        if (ANALYSIS_ENGINE === 'headless') {
+                            await browser.close();
+                            console.log('Headless browser cerrado.');
+                        }
+                    } catch (e) {
+                        console.error('Error cerrando browser:', e);
                     }
                 }
             }
