@@ -7,14 +7,12 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
 const port = process.env.PORT || 3000;
 
-// When in Electron production, the app is running from the resources/app folder.
-// The .next folder should be relative to this file if bundle is correct.
+// En prod Electron, la app corre desde resources/app.
+// La carpeta .next debería ser relativa a este archivo.
 const dir = path.join(__dirname);
 
 const app = next({
-    dev, hostname, port, dir, conf: {
-        // Force production settings if needed, but 'dev' flag usually handles it
-    }
+    dev, hostname, port, dir, conf: {}
 });
 
 const handle = app.getRequestHandler();

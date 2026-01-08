@@ -2,10 +2,7 @@ import { SearchConsoleData } from "@/types";
 import { getDnsRecords } from "@layered/dns-records";
 
 /**
- * Analyze Search Console verification methods
- * @param url - The URL being analyzed
- * @param metaTagContent - Content of google-site-verification meta tag (if found)
- * @param dnsCache - Optional cache for DNS lookups to avoid redundant requests
+ * Analizar métodos de verificación de Search Console
  */
 export async function analyzeSearchConsole(
     url: string,
@@ -14,7 +11,7 @@ export async function analyzeSearchConsole(
 ): Promise<SearchConsoleData> {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname;
-    // Strip www. if present for DNS lookup (verification is usually on root domain)
+    // Eliminar www. si está presente para la búsqueda DNS
     const domain = hostname.startsWith('www.') ? hostname.slice(4) : hostname;
 
     let hasMetaTag = false;
@@ -22,24 +19,20 @@ export async function analyzeSearchConsole(
     let hasDnsTxt = false;
     let dnsTxtContent: string | undefined;
 
-    // 1. Check Meta Tag
+    // 1. Verificar Meta Tag
     if (metaTagContent) {
         hasMetaTag = true;
     }
 
-    // 2. Check HTML File verification
-    // Common patterns: google<verification-code>.html
+    // 2. Verificar archivo HTML (limitación actual)
     try {
         const baseUrl = `${new URL(url).protocol}//${new URL(url).hostname}`;
-        // We would need to know the specific filename, which varies
-        // For now, we'll mark this as a limitation
-        // In practice, we could check if metaTagContent exists and try common patterns
-        hasHtmlFile = false; // This would require the actual filename
+        hasHtmlFile = false;
     } catch (e) {
         // Ignore errors
     }
 
-    // 3. Check DNS TXT Record
+    // 3. Verificar TXT en DNS
     try {
         let txtRecords;
 
@@ -58,8 +51,7 @@ export async function analyzeSearchConsole(
         }
         console.log(`[SearchConsole] TXT records found:`, JSON.stringify(txtRecords, null, 2));
 
-        // Look for google-site-verification in TXT records
-        // DnsRecord objects have a 'data' property containing the actual value
+        // Buscar google-site-verification en los registros TXT
         if (txtRecords && txtRecords.length > 0) {
             const googleVerification = txtRecords.find((record) => {
                 const recordValue = typeof record === 'string' ? record : (record as any).data;
@@ -77,7 +69,6 @@ export async function analyzeSearchConsole(
         }
     } catch (error) {
         console.error(`[SearchConsole] DNS lookup failed for ${domain}:`, error);
-        // DNS lookup failed, but this is not critical
     }
 
     return {

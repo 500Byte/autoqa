@@ -9,29 +9,29 @@ export function analyzeGoogleAnalytics(scripts: string[]): GoogleAnalyticsData {
     let hasUniversalAnalytics = false;
     let hasGTM = false;
 
-    // Check each script URL
+    // Verificar cada URL de script
     scripts.forEach(scriptSrc => {
-        // GA4 Detection (gtag.js)
+        // Detección de GA4 (gtag.js)
         if (scriptSrc.includes('googletagmanager.com/gtag/js')) {
             hasGA4 = true;
 
-            // Extract measurement ID from URL (e.g., ?id=G-XXXXXXXXXX)
+            // Extraer ID de medición de la URL
             const idMatch = scriptSrc.match(/[?&]id=(G-[A-Z0-9]+)/i);
             if (idMatch && idMatch[1]) {
                 measurementIds.push(idMatch[1]);
             }
         }
 
-        // Universal Analytics Detection (analytics.js - deprecated)
+        // Detección de Universal Analytics (obsoleto)
         if (scriptSrc.includes('google-analytics.com/analytics.js')) {
             hasUniversalAnalytics = true;
         }
 
-        // Google Tag Manager Detection (gtm.js)
+        // Detección de Google Tag Manager (gtm.js)
         if (scriptSrc.includes('googletagmanager.com/gtm.js')) {
             hasGTM = true;
 
-            // Extract GTM container ID from URL (e.g., ?id=GTM-XXXXXXX)
+            // Extraer ID de contenedor GTM de la URL
             const gtmMatch = scriptSrc.match(/[?&]id=(GTM-[A-Z0-9]+)/i);
             if (gtmMatch && gtmMatch[1]) {
                 gtmContainers.push(gtmMatch[1]);
@@ -39,23 +39,18 @@ export function analyzeGoogleAnalytics(scripts: string[]): GoogleAnalyticsData {
         }
     });
 
-    // Additional pattern matching in script content (if needed)
-    // Note: This requires script content, not just URLs
-    // We can enhance this later if we extract inline script content
-
     return {
         hasGA4,
         hasUniversalAnalytics,
         hasGTM,
-        measurementIds: [...new Set(measurementIds)], // Remove duplicates
+        measurementIds: [...new Set(measurementIds)],
         gtmContainers: [...new Set(gtmContainers)],
         uaIds: [...new Set(uaIds)]
     };
 }
 
 /**
- * Extract GA/GTM IDs from inline script content
- * This can be called separately if script content is available
+ * Extraer IDs de GA/GTM de scripts inline
  */
 export function extractAnalyticsFromScriptContent(scriptContent: string): {
     measurementIds: string[];
@@ -66,7 +61,7 @@ export function extractAnalyticsFromScriptContent(scriptContent: string): {
     const gtmContainers: string[] = [];
     const uaIds: string[] = [];
 
-    // Extract GA4 Measurement IDs (G-XXXXXXXXXX)
+    // Extraer IDs de GA4 (G-XXXXXXXXXX)
     const ga4Pattern = /['"]G-[A-Z0-9]{10,}['"]/gi;
     const ga4Matches = scriptContent.match(ga4Pattern);
     if (ga4Matches) {
@@ -76,7 +71,7 @@ export function extractAnalyticsFromScriptContent(scriptContent: string): {
         });
     }
 
-    // Extract GTM Container IDs (GTM-XXXXXXX)
+    // Extraer IDs de GTM (GTM-XXXXXXX)
     const gtmPattern = /['"]GTM-[A-Z0-9]{7,}['"]/gi;
     const gtmMatches = scriptContent.match(gtmPattern);
     if (gtmMatches) {
@@ -86,7 +81,7 @@ export function extractAnalyticsFromScriptContent(scriptContent: string): {
         });
     }
 
-    // Extract Universal Analytics IDs (UA-XXXXXXXX-X)
+    // Extraer IDs de Universal Analytics (UA-XXXXXXXX-X)
     const uaPattern = /['"]UA-\d{4,10}-\d{1,4}['"]/gi;
     const uaMatches = scriptContent.match(uaPattern);
     if (uaMatches) {

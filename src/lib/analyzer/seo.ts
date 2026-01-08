@@ -10,12 +10,12 @@ export function analyzeSeo(pageData: PageData): string[] {
     const seoIssues: string[] = [];
     const { headings, title, metaDescription } = pageData;
 
-    // H1 Checks
+    // Validaciones de H1
     const h1Count = headings.filter(h => h.level === 1).length;
     if (h1Count > 1) seoIssues.push(`Se encontraron ${h1Count} etiquetas H1.`);
     if (h1Count === 0) seoIssues.push('No se encontró ninguna etiqueta H1.');
 
-    // Heading Hierarchy
+    // Jerarquía de encabezados
     let previousLevel = 0;
     headings.forEach((h, index) => {
         if (index === 0) {
@@ -28,10 +28,10 @@ export function analyzeSeo(pageData: PageData): string[] {
         previousLevel = h.level;
     });
 
-    // Title Check
+    // Validación de Título
     if (!title) seoIssues.push('Falta el título de la página.');
 
-    // Meta Description Check
+    // Validación de Meta Description
     if (!metaDescription) {
         seoIssues.push('Falta la meta descripción.');
     } else if (metaDescription.length < 50) {

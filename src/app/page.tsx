@@ -22,9 +22,6 @@ export default function Home() {
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // logEndRef and expandedResults are now managed within AnalysisDashboard
-  // useEffect for logs is also moved to AnalysisDashboard
-
   const handleFetchSitemap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domain) return;
@@ -141,7 +138,7 @@ export default function Home() {
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
 
-        // Keep the last potentially incomplete line in the buffer
+        // Mantener la última línea potencialmente incompleta en el buffer
         buffer = lines.pop() || '';
 
         for (const line of lines) {
@@ -169,7 +166,7 @@ export default function Home() {
             }
           } else if (line.startsWith('ERROR:')) {
             const errorMessage = line.substring(6);
-            // Don't throw immediately, just log it so we can see partial results
+            // Solo loguear el error para ver resultados parciales
             console.error('Stream Error:', errorMessage);
             setLogs(prev => [...prev, `❌ CRITICAL ERROR: ${errorMessage}`]);
           }
@@ -198,23 +195,20 @@ export default function Home() {
       <header className="fixed top-0 left-0 right-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-md bg-blue-600 flex items-center justify-center text-white">
-              {/* Using a simple div instead of imported icon to keep it light or import Sparkles if needed */}
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" /></svg>
-            </div>
+            <img src="/icon.png" alt="AutoQA Logo" className="h-8 w-8 rounded-md" />
             <span className="font-semibold text-base">AutoQA</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="#" className="text-sm text-gray-600 hover:text-gray-900">Documentación</a>
+            <a href="https://imp-tools.diegonr.com/" className="text-sm text-gray-600 hover:text-gray-900" target="_blank" rel="noopener noreferrer">IMP Tools</a>
             <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg> Beta
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg> ALPHA
             </span>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-6 pt-24 pb-16">
-        {/* State 1: Hero / Input */}
+        {/* Estado 1: Hero / Input */}
         <div className={cn(
           "transition-all duration-300",
           isInitialState ? "opacity-100" : "opacity-0 hidden"
@@ -228,7 +222,7 @@ export default function Home() {
           />
         </div>
 
-        {/* State 2: Selection */}
+        {/* Estado 2: Selección */}
         <div className={cn(
           "transition-all duration-300",
           isSelectionState ? "opacity-100" : "opacity-0 hidden"
@@ -244,7 +238,7 @@ export default function Home() {
           />
         </div>
 
-        {/* State 3: Analysis Dashboard */}
+        {/* Estado 3: Dashboard de Análisis */}
         <div className={cn(
           "transition-all duration-300",
           isAnalysisState ? "opacity-100" : "opacity-0 hidden"

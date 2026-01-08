@@ -9,22 +9,22 @@ import { analyzeSearchConsole } from '@/lib/analyzer/searchconsole';
 
 export const dynamic = 'force-dynamic';
 
-// --- CONFIGURATION ---
-const MAX_CONCURRENCY = 2; // Conservative start
-const ANALYSIS_ENGINE: 'headless' | 'cdp' = 'headless'; // 'headless' (new, robust) or 'cdp' (legacy)
-const CONTEXT_STRATEGY: 'shared' | 'per-url' = 'shared'; // 'shared' (faster) or 'per-url' (isolation)
+// --- CONFIGURACIÓN ---
+const MAX_CONCURRENCY = 2;
+const ANALYSIS_ENGINE: 'headless' | 'cdp' = 'headless';
+const CONTEXT_STRATEGY: 'shared' | 'per-url' = 'shared';
 
-// Helper to get or create context based on strategy
+// Obtener o crear contexto según la estrategia
 async function getContext(browser: Browser, existingContext: BrowserContext | null): Promise<BrowserContext> {
     if (CONTEXT_STRATEGY === 'shared') {
         if (existingContext) return existingContext;
         return await browser.newContext();
     }
-    // Per-URL strategy creates a new context every time (caller must handle closing)
+    // La estrategia Per-URL crea un contexto nuevo cada vez
     return await browser.newContext();
 }
 
-// Logic for analyzing a single URL
+// Lógica para analizar una sola URL
 async function analyzeSingleUrl(
     url: string,
     browser: Browser,
@@ -42,25 +42,25 @@ async function analyzeSingleUrl(
     try {
         sendLog(`▶️ Iniciando análisis: ${url}`);
 
-        // Context Management
+        // Gestión de contexto
         if (CONTEXT_STRATEGY === 'shared') {
-            // Re-use the shared batch context
+            // Reutilizar el contexto compartido
             context = sharedContext!;
         } else {
-            // Create a fresh context for this URL
+            // Crear un contexto nuevo para esta URL
             context = await getContext(browser, null);
         }
 
-        // Create Page
+        // Crear página
         page = await context.newPage();
 
-        // Check abort before heavy operations
+        // Verificar aborto antes de operaciones pesadas
         if (request.signal.aborted) throw new Error('Aborted by user');
 
-        // TIMEOUT WRAPPER (30s)
+        // Limite de tiempo (30s)
         await Promise.race([
             (async () => {
-                // Navigation
+                // Navegación
                 try {
                     await page!.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
                 } catch (e) {
@@ -71,7 +71,7 @@ async function analyzeSingleUrl(
 
                 if (request.signal.aborted) throw new Error('Aborted by user');
 
-                // Data Extraction
+                // Extracción de datos
                 const pageData = await page!.evaluate(() => {
                     const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map(h => ({
                         tag: h.tagName.toLowerCase(),
@@ -88,17 +88,17 @@ async function analyzeSingleUrl(
                     const meta = document.querySelector('meta[name="description"]');
                     const metaDescription = meta ? meta.getAttribute('content') : null;
 
-                    // Extract script sources for analytics detection
+                    // Extraer fuentes de scripts para detección de analíticas
                     const scripts = Array.from(document.querySelectorAll('script[src]')).map(script =>
                         (script as HTMLScriptElement).src
                     );
 
-                    // Extract inline scripts content for additional analytics detection
+                    // Extraer contenidos de scripts inline para detección adicional
                     const inlineScripts = Array.from(document.querySelectorAll('script:not([src])')).map(script =>
                         script.textContent || ''
                     );
 
-                    // Extract Google Search Console meta tag
+                    // Extraer meta tag de Google Search Console
                     const gscMeta = document.querySelector('meta[name="google-site-verification"]');
                     const gscMetaContent = gscMeta ? gscMeta.getAttribute('content') : null;
 
@@ -114,14 +114,14 @@ async function analyzeSingleUrl(
                     };
                 });
 
-                // SEO Analysis
+                // Análisis SEO
                 const seoIssues = analyzeSeo({
                     headings: pageData.headings,
                     title: pageData.title,
                     metaDescription: pageData.metaDescription
                 });
 
-                // Lazy Load Scroll
+                // Scroll para carga diferida
                 try {
                     await page!.evaluate(async () => {
                         await new Promise((resolve) => {
@@ -146,14 +146,14 @@ async function analyzeSingleUrl(
                 await page!.waitForTimeout(500);
                 if (request.signal.aborted) throw new Error('Aborted by user');
 
-                // Accessibility Analysis
+                // Análisis de accesibilidad
                 const accessibilityIssues = await runAxeAnalysis(page!);
 
-                // Broken Links
+                // Enlaces rotos
                 const linkResults = await checkLinks(pageData.links);
                 const brokenLinks = linkResults.filter(l => !l.ok);
 
-                // Analytics Detection
+                // Detección de analíticas
                 const googleAnalytics = analyzeGoogleAnalytics(pageData.scripts);
 
                 // Extract additional IDs from inline scripts
@@ -165,21 +165,21 @@ async function analyzeSingleUrl(
                 googleAnalytics.gtmContainers.push(...inlineAnalytics.gtmContainers);
                 googleAnalytics.uaIds.push(...inlineAnalytics.uaIds);
 
-                // Remove duplicates
+                // Eliminar duplicados
                 googleAnalytics.measurementIds = [...new Set(googleAnalytics.measurementIds)];
                 googleAnalytics.gtmContainers = [...new Set(googleAnalytics.gtmContainers)];
                 googleAnalytics.uaIds = [...new Set(googleAnalytics.uaIds)];
 
-                // Update flags based on found IDs
+                // Actualizar flags según los IDs encontrados
                 if (googleAnalytics.measurementIds.length > 0) googleAnalytics.hasGA4 = true;
                 if (googleAnalytics.uaIds.length > 0) googleAnalytics.hasUniversalAnalytics = true;
                 if (googleAnalytics.gtmContainers.length > 0) googleAnalytics.hasGTM = true;
 
-                // Search Console Detection
+                // Detección de Search Console
                 const searchConsole = await analyzeSearchConsole(url, pageData.gscMetaContent || undefined, dnsCache);
                 console.log(`[Route] Search Console result for ${url}:`, searchConsole);
 
-                // Send Result
+                // Enviar resultado
                 sendResult(url, {
                     headings: pageData.headings,
                     seoIssues,
@@ -222,11 +222,11 @@ async function analyzeSingleUrl(
             scripts: []
         });
     } finally {
-        // Cleanup Page
+        // Limpieza de página
         if (page) {
             try { await page.close(); } catch (e) { console.error('Error cerrando página', e); }
         }
-        // Cleanup Context (ONLY if per-url strategy)
+        // Limpieza de contexto (solo si no es compartido)
         if (CONTEXT_STRATEGY === 'per-url' && context) {
             try { await context.close(); } catch (e) { console.error('Error cerrando contexto', e); }
         }
@@ -243,18 +243,17 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
         async start(controller) {
-            // STATE FLAG TO PREVENT DOUBLE CLOSE
+            // INDICADOR PARA EVITAR DOBLE CIERRE
             let isControllerClosed = false;
 
-            // HANDLE ABORT SIGNAL
+            // MANEJAR SEÑAL DE ABORTO
             request.signal.addEventListener('abort', () => {
                 isControllerClosed = true;
-                // Note: We don't call controller.close() here because the stream is effectively dead/closed by the client
             });
 
             const safeClose = () => {
                 if (!isControllerClosed && !request.signal.aborted) {
-                    try { controller.close(); } catch (e) { console.error('Error closing controller:', e); }
+                    try { controller.close(); } catch (e) { console.error('Error cerrando controller:', e); }
                     isControllerClosed = true;
                 }
             };
@@ -276,9 +275,8 @@ export async function POST(request: Request) {
             try {
                 sendLog(`🚀 Iniciando análisis (${ANALYSIS_ENGINE}, Concurrency: ${MAX_CONCURRENCY})...`);
 
-                // 1. Browser Launch Strategy
+                // 1. Lanzamiento del Navegador
                 if (ANALYSIS_ENGINE === 'headless') {
-                    // Try/Catch specific to launch
                     try {
                         browser = await chromium.launch({
                             headless: true,
@@ -298,7 +296,7 @@ export async function POST(request: Request) {
                     }
                 }
 
-                // 2. Shared Context Setup (if applicable)
+                // 2. Configuración de Contexto Compartido
                 if (CONTEXT_STRATEGY === 'shared') {
                     if (ANALYSIS_ENGINE === 'cdp') {
                         sharedContext = browser.contexts()[0];
@@ -307,7 +305,7 @@ export async function POST(request: Request) {
                     }
                 }
 
-                // 3. Queue Execution
+                // 3. Ejecución de la Cola
                 const limit = pLimit(MAX_CONCURRENCY);
                 const tasks = urls.map((url: string) => limit(() =>
                     analyzeSingleUrl(url, browser!, sharedContext, sendLog, sendResult, request, dnsCache)
@@ -315,7 +313,7 @@ export async function POST(request: Request) {
 
                 await Promise.all(tasks);
 
-                // Shared Context Cleanup
+                // Limpieza de Contexto Compartido
                 if (CONTEXT_STRATEGY === 'shared' && sharedContext) {
                     try {
                         await sharedContext.close();
@@ -325,7 +323,7 @@ export async function POST(request: Request) {
                     }
                 }
 
-                // Only send Log and Close if NOT aborted
+                // Finalizar si no se ha abortado
                 if (!request.signal.aborted) {
                     sendLog('🏁 Todas las tareas completadas.');
                     safeClose();
@@ -342,7 +340,7 @@ export async function POST(request: Request) {
                     safeClose();
                 }
             } finally {
-                // Cleanup Browser
+                // Limpieza del Navegador
                 if (browser) {
                     try {
                         if (ANALYSIS_ENGINE === 'headless') {

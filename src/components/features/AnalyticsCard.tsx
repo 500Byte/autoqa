@@ -11,7 +11,7 @@ interface AnalyticsCardProps {
 export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
     const { googleAnalytics, searchConsole } = analytics;
 
-    // Check if any analytics or search console methods are detected
+    // Verificar si se detectan métodos de analítica o search console
     const hasAnyAnalytics = googleAnalytics.hasGA4 || googleAnalytics.hasUniversalAnalytics || googleAnalytics.hasGTM;
     const hasAnySearchConsole = searchConsole.hasMetaTag || searchConsole.hasHtmlFile || searchConsole.hasDnsTxt;
 
@@ -24,7 +24,7 @@ export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                {/* Google Analytics Section */}
+                {/* Sección de Google Analytics */}
                 <div className="space-y-3">
                     <div className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4 text-blue-600" />
@@ -124,7 +124,7 @@ export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
                     )}
                 </div>
 
-                {/* Search Console Section */}
+                {/* Sección de Search Console */}
                 <div className="space-y-3 border-t pt-3">
                     <div className="flex items-center gap-2">
                         <Shield className="h-4 w-4 text-green-600" />
@@ -133,7 +133,7 @@ export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
 
                     {hasAnySearchConsole ? (
                         <div className="space-y-2">
-                            {/* Meta Tag Verification */}
+                            {/* Verificación por Meta Tag */}
                             <div className="flex items-center gap-2">
                                 {searchConsole.hasMetaTag ? (
                                     <CheckCircle className="h-4 w-4 text-green-600" />
@@ -155,7 +155,7 @@ export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
                                 </div>
                             )}
 
-                            {/* HTML File Verification */}
+                            {/* Verificación por archivo HTML */}
                             <div className="flex items-center gap-2">
                                 {searchConsole.hasHtmlFile ? (
                                     <CheckCircle className="h-4 w-4 text-green-600" />
@@ -167,7 +167,7 @@ export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
                                 </span>
                             </div>
 
-                            {/* DNS TXT Verification */}
+                            {/* Verificación por DNS TXT */}
                             <div className="flex items-center gap-2">
                                 {searchConsole.hasDnsTxt ? (
                                     <CheckCircle className="h-4 w-4 text-green-600" />

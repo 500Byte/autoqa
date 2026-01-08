@@ -57,7 +57,7 @@ export function AnalysisDashboard({
 
     return (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column: Status */}
+            {/* Columna Izquierda: Estado */}
             <div className="lg:col-span-1 space-y-4">
                 <Card>
                     <CardHeader className="pb-3">
@@ -114,7 +114,7 @@ export function AnalysisDashboard({
                 </Card>
             </div>
 
-            {/* Right Column: Results */}
+            {/* Columna Derecha: Resultados */}
             <div className="lg:col-span-2 space-y-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -137,12 +137,12 @@ export function AnalysisDashboard({
                 </div>
 
                 <div className="space-y-3">
-                    {/* Analytics Card - Show for first result only */}
+                    {/* Tarjeta de Analítica - Mostrar solo para el primer resultado */}
                     {results.length > 0 && results[0].analytics && (
                         <AnalyticsCard analytics={results[0].analytics} url={results[0].url} />
                     )}
 
-                    {/* Actual results */}
+                    {/* Resultados reales */}
                     {results.map((result, idx) => (
                         <Card key={idx} className="border-l-4 border-l-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <CardHeader className="bg-gray-50 pb-3">
@@ -227,7 +227,7 @@ export function AnalysisDashboard({
                         </Card>
                     ))}
 
-                    {/* Show skeleton loaders for pending results */}
+                    {/* Mostrar esqueletos de carga para resultados pendientes */}
                     {analyzing && selectedUrlsSize > results.length && Array.from({ length: Math.min(3, selectedUrlsSize - results.length) }).map((_, i) => (
                         <Card key={`skeleton-${i}`}>
                             <CardHeader className="pb-3">

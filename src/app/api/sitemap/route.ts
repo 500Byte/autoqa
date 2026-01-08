@@ -9,11 +9,11 @@ async function fetchAndParseSitemap(sitemapUrl: string): Promise<string[]> {
 
     const xmlText = await response.text();
 
-    // Check if this is a sitemap index (contains <sitemap> tags)
+    // Verificar si es un índice de sitemaps
     const isSitemapIndex = xmlText.includes('<sitemap>') || xmlText.includes('<sitemapindex>');
 
     if (isSitemapIndex) {
-        // Extract sitemap URLs from the index
+        // Extraer URLs de sitemaps del índice
         const sitemapMatches = xmlText.match(/<loc>(.*?)<\/loc>/g);
 
         if (!sitemapMatches) {
@@ -24,7 +24,7 @@ async function fetchAndParseSitemap(sitemapUrl: string): Promise<string[]> {
             return match.replace(/<\/?loc>/g, '').trim();
         });
 
-        // Recursively fetch all sitemaps
+        // Obtener recursivamente todas las URLs
         const allUrls: string[] = [];
         for (const url of sitemapUrls) {
             try {
@@ -37,7 +37,7 @@ async function fetchAndParseSitemap(sitemapUrl: string): Promise<string[]> {
 
         return allUrls;
     } else {
-        // This is a regular sitemap, extract page URLs
+        // Sitemap regular, extraer URLs de páginas
         const urlMatches = xmlText.match(/<loc>(.*?)<\/loc>/g);
 
         if (!urlMatches) {
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     }
 
     try {
-        // Normalize URL
+        // Normalizar URL
         let baseUrl = url;
         if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
             baseUrl = 'https://' + baseUrl;
@@ -68,14 +68,14 @@ export async function GET(request: Request) {
             baseUrl = baseUrl.slice(0, -1);
         }
 
-        // Try to fetch sitemap.xml
+        // Intentar obtener sitemap.xml
         let sitemapUrl = `${baseUrl}/sitemap.xml`;
         let allUrls: string[] = [];
 
         try {
             allUrls = await fetchAndParseSitemap(sitemapUrl);
         } catch (error) {
-            // If sitemap.xml fails, try sitemap_index.xml
+            // Si falla sitemap.xml, intentar sitemap_index.xml
             sitemapUrl = `${baseUrl}/sitemap_index.xml`;
             try {
                 allUrls = await fetchAndParseSitemap(sitemapUrl);
@@ -88,10 +88,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'No URLs found in sitemap' }, { status: 404 });
         }
 
-        // Remove duplicates
+        // Eliminar duplicados
         const uniqueUrls = [...new Set(allUrls)];
 
-        // Filter out non-page URLs (like other XML files)
+        // Filtrar URLs que no sean páginas
         const pageUrls = uniqueUrls.filter(url => {
             return !url.endsWith('.xml') && !url.endsWith('.xsl');
         });

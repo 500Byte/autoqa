@@ -4,7 +4,7 @@ import { AxeViolation } from "@/types";
 
 export async function runAxeAnalysis(page: Page): Promise<AxeViolation[]> {
     try {
-        // Inject Axe Core with error handling
+        // Inyectar Axe Core
         try {
             await page.addScriptTag({ content: AXE_CORE_SOURCE });
         } catch (injectError) {
@@ -12,7 +12,7 @@ export async function runAxeAnalysis(page: Page): Promise<AxeViolation[]> {
             return [];
         }
 
-        // Run Analysis with safely
+        // Ejecutar análisis de forma segura
         const axeResults = await page.evaluate(async () => {
             // @ts-ignore
             if (typeof window.axe === 'undefined') return { violations: [] };

@@ -29,9 +29,9 @@ export interface GoogleAnalyticsData {
     hasGA4: boolean;
     hasUniversalAnalytics: boolean;
     hasGTM: boolean;
-    measurementIds: string[];  // G-XXXXXXXXXX
-    gtmContainers: string[];   // GTM-XXXXXXX
-    uaIds: string[];           // UA-XXXXXXXX-X
+    measurementIds: string[];
+    gtmContainers: string[];
+    uaIds: string[];
 }
 
 export interface SearchConsoleData {

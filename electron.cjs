@@ -1,8 +1,9 @@
 const { app, BrowserWindow, Menu, dialog } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const log = require('electron-log');
 const path = require('path');
 
-// Force production mode if not explicitly in development
+// Forzar modo producción si no estamos explícitamente en desarrollo
 if (process.env.NODE_ENV !== 'development') {
     process.env.NODE_ENV = 'production';
 }
@@ -10,7 +11,7 @@ if (process.env.NODE_ENV !== 'development') {
 const isDev = process.env.NODE_ENV === 'development';
 const port = process.env.PORT || 3000;
 
-// SINGLE INSTANCE LOCK
+// Bloqueo de instancia única
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
@@ -18,12 +19,12 @@ if (!gotTheLock) {
     app.quit();
 } else {
     // ---------------------------------------------------------
-    // PRIMARY APP LOGIC
+    // LÓGICA PRINCIPAL DE LA APP
     // ---------------------------------------------------------
 
     let mainWindow;
 
-    // Handle second instance (focus existing window)
+    // Manejar segunda instancia (enfocar ventana existente)
     app.on('second-instance', (event, commandLine, workingDirectory) => {
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
@@ -52,55 +53,65 @@ if (!gotTheLock) {
             mainWindow.show();
         });
 
-        // Set application menu
-        const template = [
-            {
-                label: 'File',
-                submenu: [
-                    { role: 'quit' }
-                ]
-            },
-            {
-                label: 'Edit',
-                submenu: [
-                    { role: 'undo' },
-                    { role: 'redo' },
-                    { type: 'separator' },
-                    { role: 'cut' },
-                    { role: 'copy' },
-                    { role: 'paste' },
-                ]
-            },
-            {
-                label: 'View',
-                submenu: [
-                    { role: 'reload' },
-                    { role: 'forceReload' },
-                    { role: 'toggleDevTools' },
-                    { type: 'separator' },
-                    { role: 'resetZoom' },
-                    { role: 'zoomIn' },
-                    { role: 'zoomOut' },
-                    { type: 'separator' },
-                    { role: 'togglefullscreen' }
-                ]
-            },
-            {
-                label: 'Help',
-                submenu: [
-                    {
-                        label: 'About AutoQA',
-                        click: async () => {
-                            const { shell } = require('electron');
-                            await shell.openExternal('https://github.com');
+        // Configurar menú de la aplicación
+        if (isDev) {
+            const template = [
+                {
+                    label: 'File',
+                    submenu: [
+                        { role: 'quit' }
+                    ]
+                },
+                {
+                    label: 'Edit',
+                    submenu: [
+                        { role: 'undo' },
+                        { role: 'redo' },
+                        { type: 'separator' },
+                        { role: 'cut' },
+                        { role: 'copy' },
+                        { role: 'paste' },
+                    ]
+                },
+                {
+                    label: 'View',
+                    submenu: [
+                        { role: 'reload' },
+                        { role: 'forceReload' },
+                        { role: 'toggleDevTools' },
+                        { type: 'separator' },
+                        { role: 'resetZoom' },
+                        { role: 'zoomIn' },
+                        { role: 'zoomOut' },
+                        { type: 'separator' },
+                        { role: 'togglefullscreen' }
+                    ]
+                },
+                {
+                    label: 'Help',
+                    submenu: [
+                        {
+                            label: `Version ${app.getVersion()}`,
+                            enabled: false
                         }
-                    }
-                ]
-            }
-        ];
+                    ]
+                }
+            ];
 
-        const menu = Menu.buildFromTemplate(template);
-        Menu.setApplicationMenu(menu);
+            const menu = Menu.buildFromTemplate(template);
+            Menu.setApplicationMenu(menu);
+        } else {
+            Menu.setApplicationMenu(null);
+        }
+
+        // Abrir enlaces externos en el navegador del sistema
+        mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+            if (url.startsWith('https:') || url.startsWith('http:')) {
+                require('electron').shell.openExternal(url);
+                return { action: 'deny' };
+            }
+            return { action: 'allow' };
+        });
 
         if (isDev) {
             mainWindow.loadURL(`http://localhost:${port}`);
@@ -128,7 +139,7 @@ if (!gotTheLock) {
                 const { startServer } = require('./server.js');
                 const serverInstance = await startServer();
 
-                // Keep reference for cleanup
+                // Mantener referencia para limpieza
                 if (serverInstance && serverInstance.close) {
                     app.serverInstance = serverInstance;
                 }
@@ -142,30 +153,39 @@ if (!gotTheLock) {
         });
     }
 
-    // UPDATE CONFIGURATION
+    // Configuración de actualizaciones
     autoUpdater.autoDownload = false;
     autoUpdater.allowPrerelease = true;
 
-    // Logging para debug
-    autoUpdater.logger = console;
+    // Logging para depuración
+    autoUpdater.logger = log;
+    autoUpdater.logger.transports.file.level = 'silly';
+    console.log('El archivo de log está en: ', log.transports.file.getFile().path);
+    log.info('App starting...');
 
     // Event listeners adicionales
     autoUpdater.on('checking-for-update', () => {
-        console.log('Checking for updates...');
+        log.info('Checking for updates...');
     });
 
     autoUpdater.on('update-not-available', () => {
-        console.log('App is up to date.');
+        log.info('App is up to date.');
     });
 
     autoUpdater.on('error', (error) => {
-        console.error('Update error:', error);
+        log.error('Update error:', error);
     });
 
-    // UPDATE EVENTS
-    // Modificar update-available para mostrar versión
+    autoUpdater.on('download-progress', (progressObj) => {
+        let log_message = "Download speed: " + progressObj.bytesPerSecond;
+        log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+        log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+        log.info(log_message);
+    });
+
+    // Eventos de actualización
     autoUpdater.on('update-available', (info) => {
-        console.log('Update available:', info.version);
+        log.info('Update available:', info.version);
         dialog.showMessageBox({
             type: 'info',
             title: 'Actualización Disponible',
@@ -173,14 +193,17 @@ if (!gotTheLock) {
             buttons: ['Sí', 'No']
         }).then((result) => {
             if (result.response === 0) {
+                log.info('User selected to download update.');
                 autoUpdater.downloadUpdate();
+            } else {
+                log.info('User selected NOT to download update.');
             }
         });
     });
 
     // Modificar update-downloaded para mostrar versión
     autoUpdater.on('update-downloaded', (info) => {
-        console.log('Update downloaded:', info.version);
+        log.info('Update downloaded:', info.version);
         dialog.showMessageBox({
             type: 'info',
             title: 'Actualización Lista',
@@ -188,12 +211,15 @@ if (!gotTheLock) {
             buttons: ['Reiniciar', 'Más Tarde']
         }).then((result) => {
             if (result.response === 0) {
+                log.info('User selected to restart and install.');
                 autoUpdater.quitAndInstall();
+            } else {
+                log.info('User selected to install later.');
             }
         });
     });
 
-    // APP LIFECYCLE
+    // Ciclo de vida de la aplicación
     app.whenReady().then(async () => {
         try {
             const isAutomation = process.argv.includes('--automation');
@@ -205,9 +231,8 @@ if (!gotTheLock) {
             }
 
             createWindow();
-            // Removed createAnalysisWindow();
 
-            if (app.isPackaged) {
+            if (app.isPackaged || isDev) {
                 autoUpdater.checkForUpdates();
             }
         } catch (error) {
@@ -222,7 +247,7 @@ if (!gotTheLock) {
         });
     });
 
-    // ROBUST CLEANUP
+    // Limpieza robusta
     app.on('window-all-closed', () => {
         // Force cleanup of server
         if (app.serverInstance && app.serverInstance.close) {
@@ -241,7 +266,6 @@ if (!gotTheLock) {
     app.on('before-quit', (event) => {
         event.preventDefault();
 
-        // Attempt graceful cleanup with timeout
         const cleanupPromise = new Promise((resolve) => {
             if (app.serverInstance && app.serverInstance.close) {
                 try {
@@ -254,7 +278,6 @@ if (!gotTheLock) {
             }
         });
 
-        // 2s Timeout to force exit
         Promise.race([
             cleanupPromise,
             new Promise(resolve => setTimeout(resolve, 2000))
