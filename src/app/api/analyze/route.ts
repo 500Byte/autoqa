@@ -4,6 +4,8 @@ import pLimit from 'p-limit';
 import { analyzeSeo } from '@/lib/analyzer/seo';
 import { runAxeAnalysis } from '@/lib/analyzer/accessibility';
 import { checkLinks } from '@/lib/analyzer/links';
+import { analyzeGoogleAnalytics, extractAnalyticsFromScriptContent } from '@/lib/analyzer/analytics';
+import { analyzeSearchConsole } from '@/lib/analyzer/searchconsole';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +31,8 @@ async function analyzeSingleUrl(
     sharedContext: BrowserContext | null,
     sendLog: (msg: string) => void,
     sendResult: (url: string, res: any) => void,
-    request: Request
+    request: Request,
+    dnsCache: Map<string, Promise<any[]>>
 ) {
     if (request.signal.aborted) return;
 
@@ -85,7 +88,30 @@ async function analyzeSingleUrl(
                     const meta = document.querySelector('meta[name="description"]');
                     const metaDescription = meta ? meta.getAttribute('content') : null;
 
-                    return { headings, links, images, title: document.title, metaDescription };
+                    // Extract script sources for analytics detection
+                    const scripts = Array.from(document.querySelectorAll('script[src]')).map(script =>
+                        (script as HTMLScriptElement).src
+                    );
+
+                    // Extract inline scripts content for additional analytics detection
+                    const inlineScripts = Array.from(document.querySelectorAll('script:not([src])')).map(script =>
+                        script.textContent || ''
+                    );
+
+                    // Extract Google Search Console meta tag
+                    const gscMeta = document.querySelector('meta[name="google-site-verification"]');
+                    const gscMetaContent = gscMeta ? gscMeta.getAttribute('content') : null;
+
+                    return {
+                        headings,
+                        links,
+                        images,
+                        title: document.title,
+                        metaDescription,
+                        scripts,
+                        inlineScripts,
+                        gscMetaContent
+                    };
                 });
 
                 // SEO Analysis
@@ -127,6 +153,32 @@ async function analyzeSingleUrl(
                 const linkResults = await checkLinks(pageData.links);
                 const brokenLinks = linkResults.filter(l => !l.ok);
 
+                // Analytics Detection
+                const googleAnalytics = analyzeGoogleAnalytics(pageData.scripts);
+
+                // Extract additional IDs from inline scripts
+                let allInlineScriptContent = pageData.inlineScripts.join('\n');
+                const inlineAnalytics = extractAnalyticsFromScriptContent(allInlineScriptContent);
+
+                // Merge results
+                googleAnalytics.measurementIds.push(...inlineAnalytics.measurementIds);
+                googleAnalytics.gtmContainers.push(...inlineAnalytics.gtmContainers);
+                googleAnalytics.uaIds.push(...inlineAnalytics.uaIds);
+
+                // Remove duplicates
+                googleAnalytics.measurementIds = [...new Set(googleAnalytics.measurementIds)];
+                googleAnalytics.gtmContainers = [...new Set(googleAnalytics.gtmContainers)];
+                googleAnalytics.uaIds = [...new Set(googleAnalytics.uaIds)];
+
+                // Update flags based on found IDs
+                if (googleAnalytics.measurementIds.length > 0) googleAnalytics.hasGA4 = true;
+                if (googleAnalytics.uaIds.length > 0) googleAnalytics.hasUniversalAnalytics = true;
+                if (googleAnalytics.gtmContainers.length > 0) googleAnalytics.hasGTM = true;
+
+                // Search Console Detection
+                const searchConsole = await analyzeSearchConsole(url, pageData.gscMetaContent || undefined, dnsCache);
+                console.log(`[Route] Search Console result for ${url}:`, searchConsole);
+
                 // Send Result
                 sendResult(url, {
                     headings: pageData.headings,
@@ -136,7 +188,11 @@ async function analyzeSingleUrl(
                     totalLinksChecked: linkResults.length,
                     totalLinksFound: [...new Set(pageData.links)].length,
                     images: pageData.images,
-                    scripts: []
+                    scripts: pageData.scripts,
+                    analytics: {
+                        googleAnalytics,
+                        searchConsole
+                    }
                 });
 
                 sendLog(`✅ Completado: ${url}`);
@@ -215,6 +271,7 @@ export async function POST(request: Request) {
 
             let browser: Browser | null = null;
             let sharedContext: BrowserContext | null = null;
+            const dnsCache = new Map<string, Promise<any[]>>();
 
             try {
                 sendLog(`🚀 Iniciando análisis (${ANALYSIS_ENGINE}, Concurrency: ${MAX_CONCURRENCY})...`);
@@ -253,7 +310,7 @@ export async function POST(request: Request) {
                 // 3. Queue Execution
                 const limit = pLimit(MAX_CONCURRENCY);
                 const tasks = urls.map((url: string) => limit(() =>
-                    analyzeSingleUrl(url, browser!, sharedContext, sendLog, sendResult, request)
+                    analyzeSingleUrl(url, browser!, sharedContext, sendLog, sendResult, request, dnsCache)
                 ));
 
                 await Promise.all(tasks);

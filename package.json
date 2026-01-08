@@ -15,6 +15,7 @@
     "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
+    "@layered/dns-records": "^2.3.0",
     "axe-core": "^4.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -40,9 +41,9 @@
     "electron-builder": "^26.0.12",
     "eslint": "^9",
     "eslint-config-next": "16.0.4",
+    "playwright": "^1.57.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wait-on": "^9.0.3",
-    "playwright": "^1.57.0"
+    "wait-on": "^9.0.3"
   }
 }

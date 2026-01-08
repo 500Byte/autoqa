@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisResult } from "@/types";
 import { cn } from "@/lib/utils";
+import { AnalyticsCard } from "@/components/features/AnalyticsCard";
 
 interface AnalysisDashboardProps {
     analyzing: boolean;
@@ -136,6 +137,11 @@ export function AnalysisDashboard({
                 </div>
 
                 <div className="space-y-3">
+                    {/* Analytics Card - Show for first result only */}
+                    {results.length > 0 && results[0].analytics && (
+                        <AnalyticsCard analytics={results[0].analytics} url={results[0].url} />
+                    )}
+
                     {/* Actual results */}
                     {results.map((result, idx) => (
                         <Card key={idx} className="border-l-4 border-l-blue-600 animate-in fade-in slide-in-from-bottom-4 duration-500">

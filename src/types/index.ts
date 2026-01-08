@@ -25,6 +25,28 @@ export interface AxeViolation {
     nodes?: any[];
 }
 
+export interface GoogleAnalyticsData {
+    hasGA4: boolean;
+    hasUniversalAnalytics: boolean;
+    hasGTM: boolean;
+    measurementIds: string[];  // G-XXXXXXXXXX
+    gtmContainers: string[];   // GTM-XXXXXXX
+    uaIds: string[];           // UA-XXXXXXXX-X
+}
+
+export interface SearchConsoleData {
+    hasMetaTag: boolean;
+    metaTagContent?: string;
+    hasHtmlFile: boolean;
+    hasDnsTxt: boolean;
+    dnsTxtContent?: string;
+}
+
+export interface AnalyticsData {
+    googleAnalytics: GoogleAnalyticsData;
+    searchConsole: SearchConsoleData;
+}
+
 export interface AnalysisResult {
     url: string;
     headings: Heading[];
@@ -36,4 +58,5 @@ export interface AnalysisResult {
     error?: string;
     images?: { src: string; alt: string }[];
     scripts?: string[];
+    analytics?: AnalyticsData;
 }
