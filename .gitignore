@@ -46,3 +46,7 @@ next-env.d.ts
 *.exe
 *.dmg
 *.AppImage
+
+# internal docs
+INTERNAL_README.md
+
