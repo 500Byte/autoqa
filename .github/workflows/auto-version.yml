@@ -1,0 +1,49 @@
+name: Auto Version
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Bump Version
+        id: bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Run the bump script
+          node scripts/bump-version.js auto
+          
+          # Read the new version
+          VERSION=$(node -p "require('./package.json').version")
+          TAG_NAME="v${VERSION}"
+          
+          # Check if tag exists
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists. Skipping."
+            exit 0
+          fi
+          
+          # Commit and Push
+          git add package.json package-lock.json
+          git commit -m "chore: release ${VERSION}"
+          git tag -a "${TAG_NAME}" -m "Release ${VERSION}"
+          git push origin main
+          git push origin "${TAG_NAME}"

@@ -1,0 +1,60 @@
+name: Validate Version
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      
+      - name: Check Version Files
+        run: |
+          if [ ! -f "package.json" ]; then
+            echo "Error: package.json no encontrado"
+            exit 1
+          fi
+          
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "package.json: ${PKG_VERSION}"
+      
+      - name: Validate Conventional Commits
+        run: |
+          COMMITS=$(git log origin/main..HEAD --oneline)
+          
+          echo "Commits en este PR:"
+          echo "$COMMITS"
+          
+          if [ -z "$COMMITS" ]; then
+            echo "Advertencia: No hay commits en este PR"
+            exit 0
+          fi
+          
+          INVALID_COMMITS=$(echo "$COMMITS" | grep -vE '^[a-f0-9]+ (feat|fix|docs|style|refactor|perf|test|chore)(\(.*?\))?:' || true)
+          
+          if [ -n "$INVALID_COMMITS" ]; then
+            echo ""
+            echo "Error: Los siguientes commits no siguen el formato Conventional Commits:"
+            echo "$INVALID_COMMITS"
+            echo ""
+            echo "Formato requerido: tipo: descripcion"
+            echo "Tipos validos: feat, fix, docs, style, refactor, perf, test, chore"
+            echo "Ejemplos:"
+            echo "  feat: agregar nueva funcionalidad"
+            echo "  fix: corregir error en validacion"
+            echo "  docs: actualizar documentacion"
+            exit 1
+          fi
+          
+          echo "Todos los commits siguen el formato correcto"
