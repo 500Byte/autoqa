@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils";
 import { HeroInput } from "@/components/features/HeroInput";
 import { UrlSelection } from "@/components/features/UrlSelection";
 import { AnalysisDashboard } from "@/components/features/AnalysisDashboard";
-import { SitemapResponse, AnalysisResult } from "@/types";
+import { SettingsDrawer } from "@/components/features/SettingsDrawer";
+import { SitemapResponse, AnalysisResult, AnalysisSettings } from "@/types";
+import { Settings2 } from 'lucide-react';
 
 export default function Home() {
   const [domain, setDomain] = useState('');
@@ -21,6 +23,34 @@ export default function Home() {
   const [logs, setLogs] = useState<string[]>([]);
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Settings state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<AnalysisSettings>({
+    concurrency: 2,
+    timeout: 30000,
+    accessibilityStandard: 'wcag2aa',
+    bestPractices: true
+  });
+
+  const [globalResult, setGlobalResult] = useState<any>(null);
+
+  // Load settings from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('autoqa_settings');
+    if (saved) {
+      try {
+        setSettings(JSON.parse(saved));
+      } catch (e) {
+        console.error('Error loading settings', e);
+      }
+    }
+  }, []);
+
+  // Save settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('autoqa_settings', JSON.stringify(settings));
+  }, [settings]);
 
   const handleFetchSitemap = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,6 +120,7 @@ export default function Home() {
 
   const handleGoBackToSelection = () => {
     setResults([]);
+    setGlobalResult(null);
     setAnalyzing(false);
     setLogs([]);
     setCurrentAnalyzingUrl('');
@@ -111,6 +142,7 @@ export default function Home() {
     setAnalyzing(true);
     setLogs([]);
     setResults([]);
+    setGlobalResult(null);
     setCurrentAnalyzingUrl('');
 
     abortControllerRef.current = new AbortController();
@@ -119,7 +151,10 @@ export default function Home() {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: Array.from(selectedUrls) }),
+        body: JSON.stringify({
+          urls: Array.from(selectedUrls),
+          settings
+        }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -164,6 +199,13 @@ export default function Home() {
             } catch (e) {
               console.error('Error parsing result chunk:', e);
             }
+          } else if (line.startsWith('GLOBAL_RESULT:')) {
+            try {
+              const data = JSON.parse(line.substring(14));
+              setGlobalResult(data);
+            } catch (e) {
+              console.error('Error parsing global result:', e);
+            }
           } else if (line.startsWith('ERROR:')) {
             const errorMessage = line.substring(6);
             // Solo loguear el error para ver resultados parciales
@@ -203,6 +245,13 @@ export default function Home() {
             <span className="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg> ALPHA
             </span>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500 hover:text-gray-900"
+              title="Ajustes"
+            >
+              <Settings2 className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </header>
@@ -248,12 +297,22 @@ export default function Home() {
             currentAnalyzingUrl={currentAnalyzingUrl}
             logs={logs}
             results={results}
+            globalResult={globalResult}
             selectedUrlsSize={selectedUrls.size}
+            concurrency={settings.concurrency}
             onStopAnalysis={handleStopAnalysis}
             onGoBack={handleGoBackToSelection}
           />
         </div>
       </main>
+
+      {/* Settings Drawer */}
+      <SettingsDrawer
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSettingsChange={setSettings}
+      />
     </div>
   );
 }

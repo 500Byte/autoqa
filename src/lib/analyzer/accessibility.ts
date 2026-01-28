@@ -2,7 +2,7 @@ import { Page } from 'playwright-core';
 import { AXE_CORE_SOURCE } from '@/lib/axe-constant';
 import { AxeViolation } from "@/types";
 
-export async function runAxeAnalysis(page: Page): Promise<AxeViolation[]> {
+export async function runAxeAnalysis(page: Page, tags: string[] = ['wcag2a', 'wcag2aa', 'best-practice']): Promise<AxeViolation[]> {
     try {
         // Inyectar Axe Core
         try {
@@ -13,20 +13,20 @@ export async function runAxeAnalysis(page: Page): Promise<AxeViolation[]> {
         }
 
         // Ejecutar análisis de forma segura
-        const axeResults = await page.evaluate(async () => {
+        const axeResults = await page.evaluate(async (tags) => {
             // @ts-ignore
             if (typeof window.axe === 'undefined') return { violations: [] };
 
             try {
                 // @ts-ignore
                 return await window.axe.run(document, {
-                    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'best-practice'] },
+                    runOnly: { type: 'tag', values: tags },
                     resultTypes: ['violations']
                 });
             } catch (runError) {
                 return { violations: [] };
             }
-        }) as any;
+        }, tags) as any;
 
         if (!axeResults || !axeResults.violations) return [];
 

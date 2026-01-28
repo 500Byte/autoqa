@@ -6,13 +6,15 @@ import { runAxeAnalysis } from '@/lib/analyzer/accessibility';
 import { checkLinks } from '@/lib/analyzer/links';
 import { analyzeGoogleAnalytics, extractAnalyticsFromScriptContent } from '@/lib/analyzer/analytics';
 import { analyzeSearchConsole } from '@/lib/analyzer/searchconsole';
+import { AnalysisSettings } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
-// --- CONFIGURACIÓN ---
-const MAX_CONCURRENCY = 2;
+// --- CONFIGURACIÓN POR DEFECTO ---
+const DEFAULT_MAX_CONCURRENCY = 2;
 const ANALYSIS_ENGINE: 'headless' | 'cdp' = 'headless';
 const CONTEXT_STRATEGY: 'shared' | 'per-url' = 'shared';
+const DEFAULT_TIMEOUT = 30000;
 
 // Obtener o crear contexto según la estrategia
 async function getContext(browser: Browser, existingContext: BrowserContext | null): Promise<BrowserContext> {
@@ -32,7 +34,9 @@ async function analyzeSingleUrl(
     sendLog: (msg: string) => void,
     sendResult: (url: string, res: any) => void,
     request: Request,
-    dnsCache: Map<string, Promise<any[]>>
+    dnsCache: Map<string, Promise<any[]>>,
+    settings: AnalysisSettings,
+    tags: string[]
 ) {
     if (request.signal.aborted) return;
 
@@ -62,11 +66,11 @@ async function analyzeSingleUrl(
             (async () => {
                 // Navegación
                 try {
-                    await page!.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+                    await page!.goto(url, { waitUntil: 'networkidle', timeout: settings.timeout * 0.66 });
                 } catch (e) {
                     if (request.signal.aborted) throw new Error('Aborted by user');
                     sendLog(`⚠️ Timeout idle en ${url}, reintentando con 'load'...`);
-                    await page!.goto(url, { waitUntil: 'load', timeout: 20000 });
+                    await page!.goto(url, { waitUntil: 'load', timeout: settings.timeout * 0.66 });
                 }
 
                 if (request.signal.aborted) throw new Error('Aborted by user');
@@ -147,13 +151,15 @@ async function analyzeSingleUrl(
                 if (request.signal.aborted) throw new Error('Aborted by user');
 
                 // Análisis de accesibilidad
-                const accessibilityIssues = await runAxeAnalysis(page!);
+                const accessibilityIssues = await runAxeAnalysis(page!, tags);
+                const totalInstances = accessibilityIssues.reduce((acc, curr) => acc + (curr.nodes?.length || 0), 0);
+                sendLog(`🔍 Accesibilidad: ${accessibilityIssues.length} reglas, ${totalInstances} instancias detectadas con etiquetas [${tags.join(', ')}]`);
 
                 // Enlaces rotos
                 const linkResults = await checkLinks(pageData.links);
                 const brokenLinks = linkResults.filter(l => !l.ok);
 
-                // Detección de analíticas
+                // Detección de analíticas (mantener por URL para ver si hay variaciones, pero el global se hará aparte)
                 const googleAnalytics = analyzeGoogleAnalytics(pageData.scripts);
 
                 // Extract additional IDs from inline scripts
@@ -175,10 +181,6 @@ async function analyzeSingleUrl(
                 if (googleAnalytics.uaIds.length > 0) googleAnalytics.hasUniversalAnalytics = true;
                 if (googleAnalytics.gtmContainers.length > 0) googleAnalytics.hasGTM = true;
 
-                // Detección de Search Console
-                const searchConsole = await analyzeSearchConsole(url, pageData.gscMetaContent || undefined, dnsCache);
-                console.log(`[Route] Search Console result for ${url}:`, searchConsole);
-
                 // Enviar resultado
                 sendResult(url, {
                     headings: pageData.headings,
@@ -191,14 +193,14 @@ async function analyzeSingleUrl(
                     scripts: pageData.scripts,
                     analytics: {
                         googleAnalytics,
-                        searchConsole
+                        // Search Console se envía en el GLOBAL_RESULT
                     }
                 });
 
                 sendLog(`✅ Completado: ${url}`);
             })(),
 
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de análisis (30s)')), 30000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout de análisis (${settings.timeout / 1000}s)`)), settings.timeout))
         ]);
 
     } catch (error: any) {
@@ -234,7 +236,36 @@ async function analyzeSingleUrl(
 }
 
 export async function POST(request: Request) {
-    const { urls } = await request.json();
+    const { urls, settings: userSettings } = await request.json();
+
+    const settings: AnalysisSettings = {
+        concurrency: userSettings?.concurrency || DEFAULT_MAX_CONCURRENCY,
+        timeout: userSettings?.timeout || DEFAULT_TIMEOUT,
+        accessibilityStandard: userSettings?.accessibilityStandard || 'wcag2aa',
+        bestPractices: userSettings?.bestPractices ?? true
+    };
+
+    // Construir etiquetas de accesibilidad de forma acumulativa
+    const getCumulativeTags = (standard: string): string[] => {
+        const tags: string[] = [];
+        const levels = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'];
+        const index = levels.indexOf(standard);
+
+        if (index !== -1) {
+            // Añadir todas las etiquetas hasta el nivel seleccionado
+            for (let i = 0; i <= index; i++) {
+                tags.push(levels[i]);
+            }
+        } else {
+            tags.push('wcag2aa'); // Default fallback
+        }
+        return tags;
+    };
+
+    const accessibilityTags = getCumulativeTags(settings.accessibilityStandard);
+    if (settings.bestPractices) {
+        accessibilityTags.push('best-practice');
+    }
 
     if (!urls || !Array.isArray(urls) || urls.length === 0) {
         return NextResponse.json({ error: 'URLs array is required' }, { status: 400 });
@@ -267,13 +298,17 @@ export async function POST(request: Request) {
                 if (isControllerClosed || request.signal.aborted) return;
                 try { controller.enqueue(encoder.encode(`RESULT:${JSON.stringify({ url, result })}\n`)); } catch (e) { }
             };
+            const sendGlobalResult = (result: any) => {
+                if (isControllerClosed || request.signal.aborted) return;
+                try { controller.enqueue(encoder.encode(`GLOBAL_RESULT:${JSON.stringify(result)}\n`)); } catch (e) { }
+            };
 
             let browser: Browser | null = null;
             let sharedContext: BrowserContext | null = null;
             const dnsCache = new Map<string, Promise<any[]>>();
 
             try {
-                sendLog(`🚀 Iniciando análisis (${ANALYSIS_ENGINE}, Concurrency: ${MAX_CONCURRENCY})...`);
+                sendLog(`🚀 Iniciando análisis (${ANALYSIS_ENGINE}, Concurrency: ${settings.concurrency})...`);
 
                 // 1. Lanzamiento del Navegador
                 if (ANALYSIS_ENGINE === 'headless') {
@@ -301,14 +336,51 @@ export async function POST(request: Request) {
                     if (ANALYSIS_ENGINE === 'cdp') {
                         sharedContext = browser.contexts()[0];
                     } else {
-                        sharedContext = await getContext(browser, null);
+                        sharedContext = await browser.newContext();
                     }
                 }
 
+                // --- GLOBAL ANALYSIS PHASE ---
+                sendLog('🌐 Analizando configuración global (DNS, Search Console)...');
+                const firstUrl = urls[0];
+
+                // Realizar una carga rápida de la primera URL para Search Console meta tags y Analytics
+                const globalContext = sharedContext || await browser.newContext();
+                const globalPage = await globalContext.newPage();
+                let gscMeta: string | undefined;
+                let globalAnalytics: any = { hasGA4: false, hasUniversalAnalytics: false, hasGTM: false, measurementIds: [], gtmContainers: [], uaIds: [] };
+
+                try {
+                    await globalPage.goto(firstUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                    gscMeta = await globalPage.evaluate(() => {
+                        const meta = document.querySelector('meta[name="google-site-verification"]');
+                        return meta ? meta.getAttribute('content') : undefined;
+                    }) || undefined;
+
+                    const scripts = await globalPage.evaluate(() => {
+                        return Array.from(document.querySelectorAll('script[src]')).map(s => (s as HTMLScriptElement).src);
+                    });
+                    globalAnalytics = analyzeGoogleAnalytics(scripts);
+                } catch (e) {
+                    sendLog(`⚠️ Error en análisis global de página: ${(e as Error).message}`);
+                } finally {
+                    await globalPage.close();
+                    if (!sharedContext) await globalContext.close();
+                }
+
+                const searchConsoleResult = await analyzeSearchConsole(firstUrl, gscMeta, dnsCache);
+                sendGlobalResult({
+                    analytics: {
+                        googleAnalytics: globalAnalytics,
+                        searchConsole: searchConsoleResult
+                    }
+                });
+                sendLog('✅ Análisis global finalizado.');
+
                 // 3. Ejecución de la Cola
-                const limit = pLimit(MAX_CONCURRENCY);
+                const limit = pLimit(settings.concurrency);
                 const tasks = urls.map((url: string) => limit(() =>
-                    analyzeSingleUrl(url, browser!, sharedContext, sendLog, sendResult, request, dnsCache)
+                    analyzeSingleUrl(url, browser!, sharedContext, sendLog, sendResult, request, dnsCache, settings, accessibilityTags)
                 ));
 
                 await Promise.all(tasks);

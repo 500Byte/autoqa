@@ -22,7 +22,7 @@ export interface AxeViolation {
     id: string;
     impact: string;
     description: string;
-    nodes?: any[];
+    nodes: any[];
 }
 
 export interface GoogleAnalyticsData {
@@ -59,4 +59,11 @@ export interface AnalysisResult {
     images?: { src: string; alt: string }[];
     scripts?: string[];
     analytics?: AnalyticsData;
+}
+
+export interface AnalysisSettings {
+    concurrency: number;
+    timeout: number;
+    accessibilityStandard: string;
+    bestPractices: boolean;
 }
