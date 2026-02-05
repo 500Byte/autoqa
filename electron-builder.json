@@ -38,7 +38,7 @@
                 ]
             }
         ],
-        "icon": "build/icon-large.png",
+        "icon": "build/icon.ico",
         "artifactName": "${productName}-Setup-${version}.${ext}",
         "publish": [
             "github"
@@ -60,7 +60,7 @@
                 ]
             }
         ],
-        "icon": "build/icon-large.png",
+        "icon": "build/icon.png",
         "category": "Development",
         "artifactName": "${productName}-${version}.${ext}",
         "publish": [
