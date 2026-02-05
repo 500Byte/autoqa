@@ -5,6 +5,11 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
 
 
 jobs:
@@ -29,12 +34,19 @@ jobs:
       - name: Determine Version
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [ "${{ inputs.tag_name }}" != "" ]; then
+            TAG_NAME="${{ inputs.tag_name }}"
+            VERSION=${TAG_NAME#v}
+          else
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            VERSION=${TAG_NAME#v}
+          fi
+          
           PKG_VERSION=$(node -p "require('./package.json').version")
           
           if [ "$VERSION" != "$PKG_VERSION" ]; then
             echo "Error: Version mismatch"
-            echo "Tag: v${VERSION}"
+            echo "Tag: ${TAG_NAME}"
             echo "package.json: ${PKG_VERSION}"
             exit 1
           fi
@@ -47,9 +59,10 @@ jobs:
           
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "is_prerelease=${IS_PRERELEASE}" >> $GITHUB_OUTPUT
-          echo "tag_name=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
           
           echo "Version: ${VERSION}"
+          echo "Tag: ${TAG_NAME}"
           echo "Pre-release: ${IS_PRERELEASE}"
 
   build:

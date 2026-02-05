@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
     
     steps:
       - name: Checkout
@@ -47,3 +49,13 @@ jobs:
           git tag -a "${TAG_NAME}" -m "Release ${VERSION}"
           git push origin main
           git push origin "${TAG_NAME}"
+          
+          # Set output
+          echo "new_tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+  trigger-release:
+    needs: version
+    if: needs.version.outputs.new_tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag_name: ${{ needs.version.outputs.new_tag }}
