@@ -44,7 +44,9 @@ if (!gotTheLock) {
                 contextIsolation: true,
                 sandbox: true,
             },
-            icon: path.join(__dirname, 'build', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
+            icon: isDev
+                ? path.join(__dirname, 'build', 'icon.ico')
+                : path.join(__dirname, 'build', 'icon.ico'), // Garantizado por files en electron-builder.json
             show: false,
             backgroundColor: '#ffffff',
         });

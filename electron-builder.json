@@ -15,7 +15,8 @@
         "server.js",
         "package.json",
         "next.config.mjs",
-        "node_modules/**/*"
+        "node_modules/**/*",
+        "build/**/*"
     ],
     "extraMetadata": {
         "main": "electron.cjs"
