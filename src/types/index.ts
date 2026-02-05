@@ -59,6 +59,11 @@ export interface AnalysisResult {
     images?: { src: string; alt: string }[];
     scripts?: string[];
     analytics?: AnalyticsData;
+    screenshots?: {
+        mobile: string;
+        tablet: string;
+        desktop: string;
+    };
 }
 
 export interface AnalysisSettings {

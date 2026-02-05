@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AnalysisResult } from "@/types";
 import { cn } from "@/lib/utils";
 import { AnalyticsCard } from "@/components/features/AnalyticsCard";
+import { AnalysisResultCard } from "@/components/features/AnalysisResultCard";
 
 interface AnalysisDashboardProps {
     analyzing: boolean;
@@ -42,22 +43,10 @@ export function AnalysisDashboard({
     onGoBack
 }: AnalysisDashboardProps) {
     const logEndRef = useRef<HTMLDivElement>(null);
-    const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
     const progressPercentage = selectedUrlsSize > 0 ? (results.length / selectedUrlsSize) * 100 : 0;
 
-    useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [logs]);
-
-    const toggleExpand = (idx: number) => {
-        const newExpanded = new Set(expandedResults);
-        if (newExpanded.has(idx)) {
-            newExpanded.delete(idx);
-        } else {
-            newExpanded.add(idx);
-        }
-        setExpandedResults(newExpanded);
-    };
+    // Auto-scroll desactivado completamente a petición del usuario.
+    // El usuario prefiere tener el control manual del scroll.
 
     return (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -164,107 +153,9 @@ export function AnalysisDashboard({
 
                     {/* Resultados reales */}
                     {results.map((result, idx) => (
-                        <Card key={idx} className="border-l-4 border-l-blue-600 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">
-                            <CardHeader className="bg-gray-50/50 pb-3">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="min-w-0 flex-1">
-                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                            <Globe className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                            <a href={result.url} target="_blank" className="hover:underline truncate text-gray-900">
-                                                {new URL(result.url).pathname}
-                                            </a>
-                                        </CardTitle>
-                                        <CardDescription className="text-xs truncate mt-1 text-gray-500 font-mono italic">{result.url}</CardDescription>
-                                    </div>
-                                    <div className="flex gap-2 flex-shrink-0">
-                                        <Badge variant={(result.seoIssues || []).length ? "destructive" : "secondary"} className="text-[10px] px-1.5 py-0 uppercase">
-                                            SEO: {(result.seoIssues || []).length}
-                                        </Badge>
-                                        <Badge
-                                            variant={(result.accessibilityIssues || []).length ? "destructive" : "secondary"}
-                                            className="text-[10px] px-1.5 py-0 uppercase"
-                                            title={`${(result.accessibilityIssues || []).length} reglas, ${(result.accessibilityIssues || []).reduce((acc, curr) => acc + (curr.nodes?.length || 0), 0)} instancias`}
-                                        >
-                                            A11y: {(result.accessibilityIssues || []).reduce((acc, curr) => acc + (curr.nodes?.length || 0), 0)}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            {/* ... rest of the content ... */}
-                            {((result.seoIssues || []).length > 0 || (result.accessibilityIssues || []).length > 0) && (
-                                <CardContent className="pt-4 space-y-4">
-                                    {(result.seoIssues || []).length > 0 && (
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold flex items-center gap-2 text-gray-800">
-                                                <Search className="h-4 w-4 text-blue-500" /> Problemas de SEO
-                                            </h4>
-                                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                {result.seoIssues.map((issue, i) => (
-                                                    <li key={i} className="text-xs text-gray-600 flex items-start gap-2 bg-red-50/30 p-2 rounded-lg border border-red-100/50">
-                                                        <span className="h-1 w-1 rounded-full bg-red-500 mt-2 flex-shrink-0" />
-                                                        {issue}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-
-                                    {(result.accessibilityIssues || []).length > 0 && (
-                                        <div className="space-y-2">
-                                            <h4 className="text-sm font-semibold flex items-center gap-2 text-gray-800">
-                                                <AlertCircle className="h-4 w-4 text-amber-500" /> Accesibilidad
-                                            </h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {(result.accessibilityIssues || []).slice(0, 4).map((issue, i) => (
-                                                    <div key={i} className="bg-white border p-3 rounded-xl text-sm transition-all duration-200 hover:shadow-md relative overflow-hidden group">
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <div className="flex flex-col">
-                                                                <span className="font-bold text-gray-900 tracking-tight text-xs">{issue.id}</span>
-                                                                <span className="text-[10px] text-gray-400 font-mono mt-0.5">{issue.nodes?.length || 0} {issue.nodes?.length === 1 ? 'instancia' : 'instancias'}</span>
-                                                            </div>
-                                                            <Badge variant="outline" className={cn(
-                                                                "text-[9px] font-bold uppercase shrink-0",
-                                                                issue.impact === 'critical' ? "text-red-700 border-red-200 bg-red-50" :
-                                                                    issue.impact === 'serious' ? "text-orange-700 border-orange-200 bg-orange-50" :
-                                                                        issue.impact === 'moderate' ? "text-amber-700 border-amber-200 bg-amber-50" :
-                                                                            "text-gray-600 bg-gray-50"
-                                                            )}>{issue.impact}</Badge>
-                                                        </div>
-                                                        <p className="text-gray-600 text-[11px] leading-snug">{issue.description}</p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                            {(result.accessibilityIssues || []).length > 4 && (
-                                                <div className="space-y-3">
-                                                    {expandedResults.has(idx) && (
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2">
-                                                            {(result.accessibilityIssues || []).slice(4).map((issue, i) => (
-                                                                <div key={i + 4} className="bg-white border p-3 rounded-xl text-sm transition-all duration-200 hover:shadow-md relative overflow-hidden">
-                                                                    <div className="flex justify-between items-start mb-2">
-                                                                        <div className="flex flex-col">
-                                                                            <span className="font-bold text-gray-900 tracking-tight text-xs">{issue.id}</span>
-                                                                            <span className="text-[10px] text-gray-400 font-mono mt-0.5">{issue.nodes?.length || 0} {issue.nodes?.length === 1 ? 'instancia' : 'instancias'}</span>
-                                                                        </div>
-                                                                        <Badge variant="outline" className="text-[9px] font-bold uppercase shrink-0">{issue.impact}</Badge>
-                                                                    </div>
-                                                                    <p className="text-gray-600 text-[11px] leading-snug">{issue.description}</p>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                    <button
-                                                        onClick={() => toggleExpand(idx)}
-                                                        className="text-xs text-blue-600 hover:text-blue-700 font-bold w-full text-center py-2.5 hover:bg-blue-50 rounded-xl border border-dashed border-blue-200 transition-all uppercase tracking-wider"
-                                                    >
-                                                        {expandedResults.has(idx) ? '− Ocultar problemas' : `+ Ver ${(result.accessibilityIssues || []).length - 4} problemas más`}
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </CardContent>
-                            )}
-                        </Card>
+                        <div key={idx}>
+                            <AnalysisResultCard result={result} />
+                        </div>
                     ))}
 
                     {/* Mostrar esqueletos de carga basados en concurrencia */}
