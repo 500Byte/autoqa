@@ -1,11 +1,20 @@
 import { Heading } from "@/types";
 
+/**
+ * Interface representing essential page data for SEO analysis.
+ */
 export interface PageData {
     headings: Heading[];
     title?: string;
     metaDescription?: string | null;
 }
 
+/**
+ * Analyzes SEO-related page data and identifies potential issues.
+ *
+ * @param pageData - Data extracted from the page (headings, title, meta description).
+ * @returns Array of identified SEO issues.
+ */
 export function analyzeSeo(pageData: PageData): string[] {
     const seoIssues: string[] = [];
     const { headings, title, metaDescription } = pageData;

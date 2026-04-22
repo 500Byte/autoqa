@@ -1,10 +1,16 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+/**
+ * Props for the Progress component.
+ */
 export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
     value?: number
 }
 
+/**
+ * Progress bar component.
+ */
 const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
     ({ className, value = 0, ...props }, ref) => (
         <div

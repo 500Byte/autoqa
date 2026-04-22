@@ -1,5 +1,11 @@
 import { BrokenLink } from "@/types";
 
+/**
+ * Checks a list of URLs for broken links.
+ *
+ * @param links - Array of URLs to check.
+ * @returns Array of BrokenLink objects with status and error information.
+ */
 export async function checkLinks(links: string[]): Promise<BrokenLink[]> {
     // Verificar solo enlaces únicos
     const uniqueLinks = [...new Set(links)];
@@ -19,12 +25,13 @@ export async function checkLinks(links: string[]): Promise<BrokenLink[]> {
 
             clearTimeout(timeoutId);
             return { link, status: res.status, ok: res.ok };
-        } catch (e: any) {
+        } catch (e: unknown) {
+            const error = e as Error;
             return {
                 link,
                 status: 0,
                 ok: false,
-                error: e.name === 'AbortError' ? 'Timeout' : (e.message || 'Failed')
+                error: error.name === 'AbortError' ? 'Timeout' : (error.message || 'Failed')
             };
         }
     }));

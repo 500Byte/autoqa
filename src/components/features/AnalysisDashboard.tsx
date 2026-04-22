@@ -1,36 +1,42 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef } from 'react';
 import {
     Activity,
     Square,
     CheckCircle2,
     Terminal,
     CornerUpLeft,
-    Globe,
-    Search,
-    AlertCircle
+    Globe
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AnalysisResult } from "@/types";
-import { cn } from "@/lib/utils";
+import { AnalysisResult, AnalyticsData } from "@/types";
 import { AnalyticsCard } from "@/components/features/AnalyticsCard";
 import { AnalysisResultCard } from "@/components/features/AnalysisResultCard";
 
+/**
+ * Props for the AnalysisDashboard component.
+ */
 interface AnalysisDashboardProps {
     analyzing: boolean;
     currentAnalyzingUrl: string;
     logs: string[];
     results: AnalysisResult[];
-    globalResult: any;
+    globalResult: { analytics: AnalyticsData } | null;
     selectedUrlsSize: number;
     concurrency: number;
     onStopAnalysis: () => void;
     onGoBack: () => void;
 }
 
+/**
+ * Main dashboard component that displays live analysis status, logs, and results.
+ *
+ * @param props - Component props.
+ * @returns React component.
+ */
 export function AnalysisDashboard({
     analyzing,
     currentAnalyzingUrl,
@@ -133,7 +139,7 @@ export function AnalysisDashboard({
                     {/* Tarjeta de Analítica Global */}
                     {globalResult && globalResult.analytics && (
                         <div className="animate-in fade-in slide-in-from-top-4 duration-500">
-                            <AnalyticsCard analytics={globalResult.analytics} url="Configuración Global" />
+                            <AnalyticsCard analytics={globalResult.analytics} />
                         </div>
                     )}
 

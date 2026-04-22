@@ -6,7 +6,7 @@ import { runAxeAnalysis } from '@/lib/analyzer/accessibility';
 import { checkLinks } from '@/lib/analyzer/links';
 import { comprehensiveAnalyticsScan } from '@/lib/analyzer/analytics';
 import { analyzeSearchConsole } from '@/lib/analyzer/searchconsole';
-import { AnalysisSettings } from '@/types';
+import { AnalysisSettings, AnalysisResult, AnalyticsData } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,13 @@ const ANALYSIS_ENGINE: 'headless' | 'cdp' = 'headless';
 const CONTEXT_STRATEGY: 'shared' | 'per-url' = 'shared';
 const DEFAULT_TIMEOUT = 30000;
 
-// Obtener o crear contexto según la estrategia
+/**
+ * Gets or creates a Playwright BrowserContext based on the configured strategy.
+ *
+ * @param browser - The Playwright Browser instance.
+ * @param existingContext - An already existing context if using shared strategy.
+ * @returns A BrowserContext.
+ */
 async function getContext(browser: Browser, existingContext: BrowserContext | null): Promise<BrowserContext> {
     if (CONTEXT_STRATEGY === 'shared') {
         if (existingContext) return existingContext;
@@ -26,7 +32,22 @@ async function getContext(browser: Browser, existingContext: BrowserContext | nu
     return await browser.newContext();
 }
 
-// Lógica para analizar una sola URL
+/**
+ * Analyzes a single URL.
+ *
+ * @param url - The URL to analyze.
+ * @param urlIndex - Index of the URL in the total list.
+ * @param totalUrls - Total number of URLs to analyze.
+ * @param browser - The Playwright Browser instance.
+ * @param sharedContext - The shared BrowserContext, if applicable.
+ * @param sendLog - Callback to send logs back to the client.
+ * @param sendResult - Callback to send analysis results back to the client.
+ * @param sendGlobalResult - Callback to send global analysis results back to the client.
+ * @param request - The incoming HTTP request to monitor for abort signals.
+ * @param dnsCache - Cache for DNS lookups.
+ * @param settings - Analysis settings.
+ * @param tags - Accessibility tags to check.
+ */
 async function analyzeSingleUrl(
     url: string,
     urlIndex: number,
@@ -34,10 +55,10 @@ async function analyzeSingleUrl(
     browser: Browser,
     sharedContext: BrowserContext | null,
     sendLog: (msg: string) => void,
-    sendResult: (url: string, res: any) => void,
-    sendGlobalResult: (res: any) => void,
+    sendResult: (url: string, res: Partial<AnalysisResult>) => void,
+    sendGlobalResult: (res: { analytics: AnalyticsData }) => void,
     request: Request,
-    dnsCache: Map<string, Promise<any[]>>,
+    dnsCache: Map<string, Promise<unknown[]>>,
     settings: AnalysisSettings,
     tags: string[]
 ) {
@@ -68,7 +89,7 @@ async function analyzeSingleUrl(
                 // Navegación
                 try {
                     await page!.goto(url, { waitUntil: 'networkidle', timeout: settings.timeout * 0.66 });
-                } catch (e) {
+                } catch {
                     if (request.signal.aborted) throw new Error('Aborted by user');
                     sendLog(`${pathPrefix} ⚠️ Timeout idle, reintentando con 'load'...`);
                     await page!.goto(url, { waitUntil: 'load', timeout: settings.timeout * 0.66 });
@@ -130,7 +151,7 @@ async function analyzeSingleUrl(
                 }
 
                 // Screenshots capture
-                let screenshots = { mobile: '', tablet: '', desktop: '' };
+                const screenshots = { mobile: '', tablet: '', desktop: '' };
                 try {
                     await page!.setViewportSize({ width: 375, height: 667 });
                     const mobileBuffer = await page!.screenshot({ type: 'jpeg', quality: 60, fullPage: true });
@@ -174,7 +195,7 @@ async function analyzeSingleUrl(
                             }, 50);
                         });
                     });
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
 
                 await page!.waitForTimeout(500);
                 if (request.signal.aborted) throw new Error('Aborted by user');
@@ -206,17 +227,18 @@ async function analyzeSingleUrl(
             new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout (${settings.timeout / 1000}s)`)), settings.timeout))
         ]);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const err = error as Error;
         // Silent exit if aborted
-        if (error.message === 'Aborted by user' || request.signal.aborted) {
+        if (err.message === 'Aborted by user' || request.signal.aborted) {
             return;
         }
 
-        console.error(`Error procesando ${url}:`, error);
-        sendLog(`❌ Error en ${url}: ${error.message}`);
+        console.error(`Error procesando ${url}:`, err);
+        sendLog(`❌ Error en ${url}: ${err.message}`);
 
         sendResult(url, {
-            error: error.message,
+            error: err.message,
             accessibilityIssues: [],
             headings: [],
             seoIssues: [],
@@ -224,7 +246,6 @@ async function analyzeSingleUrl(
             totalLinksChecked: 0,
             totalLinksFound: 0,
             images: [],
-            scripts: []
         });
     } finally {
         // Limpieza de página
@@ -238,6 +259,12 @@ async function analyzeSingleUrl(
     }
 }
 
+/**
+ * Main API route for page analysis.
+ *
+ * @param request - Incoming HTTP request.
+ * @returns A streaming response with analysis logs and results.
+ */
 export async function POST(request: Request) {
     const { urls, settings: userSettings } = await request.json();
 
@@ -248,7 +275,9 @@ export async function POST(request: Request) {
         bestPractices: userSettings?.bestPractices ?? true
     };
 
-    // Construir etiquetas de accesibilidad de forma acumulativa
+    /**
+     * Builds cumulative accessibility tags based on the standard.
+     */
     const getCumulativeTags = (standard: string): string[] => {
         const tags: string[] = [];
         const levels = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22a', 'wcag22aa'];
@@ -292,23 +321,24 @@ export async function POST(request: Request) {
                 }
             };
 
+            // TODO: consider extracting these streaming helper functions
             const sendLog = (message: string) => {
                 if (isControllerClosed || request.signal.aborted) return;
                 const timestamp = new Date().toLocaleTimeString();
-                try { controller.enqueue(encoder.encode(`LOG:${timestamp} ${message}\n`)); } catch (e) { }
+                try { controller.enqueue(encoder.encode(`LOG:${timestamp} ${message}\n`)); } catch { /* ignore */ }
             };
-            const sendResult = (url: string, result: any) => {
+            const sendResult = (url: string, result: Partial<AnalysisResult>) => {
                 if (isControllerClosed || request.signal.aborted) return;
-                try { controller.enqueue(encoder.encode(`RESULT:${JSON.stringify({ url, result })}\n`)); } catch (e) { }
+                try { controller.enqueue(encoder.encode(`RESULT:${JSON.stringify({ url, result })}\n`)); } catch { /* ignore */ }
             };
-            const sendGlobalResult = (result: any) => {
+            const sendGlobalResult = (result: { analytics: AnalyticsData }) => {
                 if (isControllerClosed || request.signal.aborted) return;
-                try { controller.enqueue(encoder.encode(`GLOBAL_RESULT:${JSON.stringify(result)}\n`)); } catch (e) { }
+                try { controller.enqueue(encoder.encode(`GLOBAL_RESULT:${JSON.stringify(result)}\n`)); } catch { /* ignore */ }
             };
 
             let browser: Browser | null = null;
             let sharedContext: BrowserContext | null = null;
-            const dnsCache = new Map<string, Promise<any[]>>();
+            const dnsCache = new Map<string, Promise<unknown[]>>();
 
             try {
                 sendLog(`🚀 Iniciando análisis (${ANALYSIS_ENGINE}, Concurrency: ${settings.concurrency})...`);
@@ -321,15 +351,16 @@ export async function POST(request: Request) {
                             args: ['--no-sandbox', '--disable-setuid-sandbox']
                         });
                         sendLog('✅ Headless Browser lanzado.');
-                    } catch (e: any) {
-                        throw new Error(`Fallo al lanzar chromium headless: ${e.message}`);
+                    } catch (e: unknown) {
+                        const err = e as Error;
+                        throw new Error(`Fallo al lanzar chromium headless: ${err.message}`);
                     }
                 } else {
                     // CDP Fallback
                     try {
                         browser = await chromium.connectOverCDP('http://localhost:9222');
                         sendLog('✅ Conexión CDP establecida (Legacy Mode).');
-                    } catch (err) {
+                    } catch {
                         throw new Error('No se pudo conectar vía CDP.');
                     }
                 }
@@ -337,9 +368,9 @@ export async function POST(request: Request) {
                 // 2. Configuración de Contexto Compartido
                 if (CONTEXT_STRATEGY === 'shared') {
                     if (ANALYSIS_ENGINE === 'cdp') {
-                        sharedContext = browser.contexts()[0];
+                        sharedContext = (browser as Browser).contexts()[0];
                     } else {
-                        sharedContext = await browser.newContext();
+                        sharedContext = await (browser as Browser).newContext();
                     }
                 }
 
@@ -380,14 +411,15 @@ export async function POST(request: Request) {
                     safeClose();
                 }
 
-            } catch (error: any) {
-                console.error('[SERVER ERROR]', error);
+            } catch (error: unknown) {
+                const err = error as Error;
+                console.error('[SERVER ERROR]', err);
 
                 // Enqueue error only if stream is still open and not aborted
                 if (!isControllerClosed && !request.signal.aborted) {
                     try {
-                        controller.enqueue(encoder.encode(`ERROR:${error.message}\n`));
-                    } catch (e) { }
+                        controller.enqueue(encoder.encode(`ERROR:${err.message}\n`));
+                    } catch { /* ignore */ }
                     safeClose();
                 }
             } finally {

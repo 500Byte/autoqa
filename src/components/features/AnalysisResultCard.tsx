@@ -15,10 +15,20 @@ import { Badge } from "@/components/ui/badge";
 import { AnalysisResult } from "@/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * Props for the AnalysisResultCard component.
+ */
 interface AnalysisResultCardProps {
     result: AnalysisResult;
 }
 
+/**
+ * Component that displays the analysis results for a single URL.
+ * Includes SEO issues, accessibility violations, and responsive screenshots.
+ *
+ * @param props - Component props containing the analysis result.
+ * @returns React component.
+ */
 export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
     const [showAllIssues, setShowAllIssues] = useState(false);
     const [showScreenshots, setShowScreenshots] = useState(false);
@@ -26,7 +36,7 @@ export function AnalysisResultCard({ result }: AnalysisResultCardProps) {
 
     const totalA11yIssues = (result.accessibilityIssues || []).reduce((acc, curr) => acc + (curr.nodes?.length || 0), 0);
     const totalSeoIssues = (result.seoIssues || []).length;
-    const hasIssues = totalSeoIssues > 0 || totalA11yIssues > 0;
+    // hasIssues was unused
 
     return (
         <Card className="border-l-4 border-l-blue-600 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 hover:shadow-md transition-shadow">

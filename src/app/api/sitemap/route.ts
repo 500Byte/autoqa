@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
 
+/**
+ * Fetches and parses a sitemap or sitemap index XML.
+ * Handles nested sitemaps recursively.
+ *
+ * @param sitemapUrl - The URL of the sitemap to fetch.
+ * @returns Array of page URLs extracted from the sitemap(s).
+ */
 async function fetchAndParseSitemap(sitemapUrl: string): Promise<string[]> {
     const response = await fetch(sitemapUrl, { signal: AbortSignal.timeout(10000) });
 
@@ -50,6 +57,12 @@ async function fetchAndParseSitemap(sitemapUrl: string): Promise<string[]> {
     }
 }
 
+/**
+ * API route to detect and fetch URLs from a website's sitemap.
+ *
+ * @param request - Incoming HTTP request.
+ * @returns JSON response with detected URLs and sitemap location.
+ */
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const url = searchParams.get('url');
@@ -59,6 +72,7 @@ export async function GET(request: Request) {
     }
 
     try {
+        // TODO: consider extracting domain/URL normalization logic
         // Normalizar URL
         let baseUrl = url;
         if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
@@ -74,12 +88,12 @@ export async function GET(request: Request) {
 
         try {
             allUrls = await fetchAndParseSitemap(sitemapUrl);
-        } catch (error) {
+        } catch {
             // Si falla sitemap.xml, intentar sitemap_index.xml
             sitemapUrl = `${baseUrl}/sitemap_index.xml`;
             try {
                 allUrls = await fetchAndParseSitemap(sitemapUrl);
-            } catch (error2) {
+            } catch {
                 return NextResponse.json({ error: 'Sitemap not found' }, { status: 404 });
             }
         }
@@ -102,11 +116,12 @@ export async function GET(request: Request) {
             sitemapUrl
         });
 
-    } catch (error: any) {
-        console.error(error);
+    } catch (error: unknown) {
+        const err = error as Error;
+        console.error(err);
         return NextResponse.json({
             error: 'Failed to fetch sitemap',
-            details: error.message
+            details: err.message
         }, { status: 500 });
     }
 }
