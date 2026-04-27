@@ -12,7 +12,10 @@
     "electron:dev": "cross-env NODE_ENV=development concurrently \"npm run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "cross-env NODE_ENV=production npm run build && electron-builder",
     "electron:start": "electron .",
-    "postinstall": "npx playwright install chromium"
+    "postinstall": "npx playwright install chromium",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@layered/dns-records": "^2.3.0",
@@ -35,6 +38,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.5",
     "baseline-browser-mapping": "^2.9.10",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
@@ -45,6 +49,7 @@
     "playwright": "^1.57.0",
     "tailwindcss": "^4",
     "typescript": "^5",
+    "vitest": "^4.1.5",
     "wait-on": "^9.0.3"
   }
 }
