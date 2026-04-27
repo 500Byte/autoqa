@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2025-05-22T12:00:00Z",
+  "title": "Design System: AutoQA",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Electric Blue",
+        "canonical": "oklch(62% 0.20 255)",
+        "tonalRamp": [
+          "oklch(20% 0.05 255)",
+          "oklch(30% 0.08 255)",
+          "oklch(45% 0.15 255)",
+          "oklch(62% 0.20 255)",
+          "oklch(75% 0.12 255)",
+          "oklch(85% 0.08 255)",
+          "oklch(92% 0.04 255)",
+          "oklch(97% 0.01 255)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Soft Grey",
+        "canonical": "oklch(92% 0.005 240)",
+        "tonalRamp": [
+          "oklch(15% 0.01 240)",
+          "oklch(30% 0.01 240)",
+          "oklch(50% 0.01 240)",
+          "oklch(70% 0.005 240)",
+          "oklch(85% 0.005 240)",
+          "oklch(92% 0.005 240)",
+          "oklch(96% 0.005 240)",
+          "oklch(99% 0.005 240)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Primary headers and summaries."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Main content and technical descriptions."
+      }
+    },
+    "motion": [
+      {
+        "name": "ease-out-expo",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for fast, responsive entry and transitions."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call to action for audit triggers.",
+      "html": "<button class=\"ds-btn-primary\">Run Audit</button>",
+      "css": ".ds-btn-primary { background: #2563EB; color: #ffffff; padding: 8px 16px; border-radius: 10px; font-weight: 500; border: none; transition: background 0.2s, transform 0.1s; cursor: pointer; } .ds-btn-primary:hover { background: #1D4ED8; } .ds-btn-primary:active { transform: scale(0.98); }"
+    },
+    {
+      "name": "Audit Card",
+      "kind": "card",
+      "refersTo": "card-base",
+      "description": "Container for individual audit results.",
+      "html": "<div class=\"ds-card\"><h3>SEO Audit</h3><p>Found 12 issues.</p></div>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e4e4e7; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Clinical Precision",
+    "overview": "AutoQA is designed for technical users who demand accuracy and efficiency. The interface avoids the 'SaaS fluff' of generic dashboard templates, opting instead for a high-density, high-contrast environment that prioritizes analytical clarity.",
+    "keyCharacteristics": [
+      "High-Density Data",
+      "Vibrant Functional Accents",
+      "Crisp Structural Borders"
+    ],
+    "rules": [
+      {
+        "name": "The Rarity Rule",
+        "body": "The primary accent blue is used on ≤10% of any given screen. Its rarity makes it an immediate beacon for the user's eye.",
+        "section": "colors"
+      },
+      {
+        "name": "The Border-First Rule",
+        "body": "Depth is created by nested borders and background shifts (Zinc on White). Shadows are reserved for floating elements like popovers or active modals.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use 1px borders for structural separation.",
+      "Do maintain high contrast between text and background.",
+      "Do cap line lengths at 70ch for readability."
+    ],
+    "donts": [
+      "Don't use 'side-stripe' borders as colored accents on cards.",
+      "Don't use decorative glassmorphism or background blurs.",
+      "Don't use purely decorative icons.",
+      "Don't use inconsistent spacing."
+    ]
+  }
+}
