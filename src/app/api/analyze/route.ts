@@ -88,11 +88,22 @@ async function analyzeSingleUrl(
             (async () => {
                 // Navegación
                 try {
-                    await page!.goto(url, { waitUntil: 'networkidle', timeout: settings.timeout * 0.66 });
-                } catch {
+                    const response = await page!.goto(url, { waitUntil: 'networkidle', timeout: settings.timeout * 0.5 });
+                    if (response && !response.ok()) {
+                        sendLog(`${pathPrefix} ⚠️ HTTP ${response.status()} detectado para ${url}`);
+                    }
+                } catch (e: unknown) {
                     if (request.signal.aborted) throw new Error('Aborted by user');
-                    sendLog(`${pathPrefix} ⚠️ Timeout idle, reintentando con 'load'...`);
-                    await page!.goto(url, { waitUntil: 'load', timeout: settings.timeout * 0.66 });
+                    const err = e as Error;
+                    sendLog(`${pathPrefix} ⚠️ Fallo inicial: ${err.message}. Reintentando...`);
+
+                    try {
+                        await page!.goto(url, { waitUntil: 'load', timeout: settings.timeout * 0.4 });
+                    } catch (e2: unknown) {
+                        if (request.signal.aborted) throw new Error('Aborted by user');
+                        const err2 = e2 as Error;
+                        throw new Error(`Fallo tras reintento: ${err2.message}`);
+                    }
                 }
 
                 if (request.signal.aborted) throw new Error('Aborted by user');
@@ -201,13 +212,26 @@ async function analyzeSingleUrl(
                 if (request.signal.aborted) throw new Error('Aborted by user');
 
                 // Análisis de accesibilidad
-                const accessibilityIssues = await runAxeAnalysis(page!, tags);
-                const totalInstances = accessibilityIssues.reduce((acc, curr) => acc + (curr.nodes?.length || 0), 0);
-                sendLog(`${pathPrefix} 🔍 Accesibilidad: ${accessibilityIssues.length} reglas, ${totalInstances} instancias.`);
+                let accessibilityIssues = [];
+                try {
+                    accessibilityIssues = await runAxeAnalysis(page!, tags);
+                    const totalInstances = accessibilityIssues.reduce((acc, curr) => acc + (curr.nodes?.length || 0), 0);
+                    sendLog(`${pathPrefix} 🔍 Accesibilidad: ${accessibilityIssues.length} reglas, ${totalInstances} instancias.`);
+                } catch (e) {
+                    sendLog(`${pathPrefix} ❌ Error en análisis de accesibilidad.`);
+                    console.error('Accessibility analysis error:', e);
+                }
 
                 // Enlaces rotos
-                const linkResults = await checkLinks(pageData.links);
-                const brokenLinks = linkResults.filter(l => !l.ok);
+                let linkResults = [];
+                let brokenLinks = [];
+                try {
+                    linkResults = await checkLinks(pageData.links);
+                    brokenLinks = linkResults.filter(l => !l.ok);
+                } catch (e) {
+                    sendLog(`${pathPrefix} ❌ Error comprobando enlaces.`);
+                    console.error('Link check error:', e);
+                }
 
                 // Enviar resultado
                 sendResult(url, {
