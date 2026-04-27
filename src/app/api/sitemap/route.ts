@@ -1,59 +1,88 @@
 import { NextResponse } from 'next/server';
+import { normalizeUrl } from '@/lib/url-utils';
 
 /**
  * Fetches and parses a sitemap or sitemap index XML.
  * Handles nested sitemaps recursively.
  *
  * @param sitemapUrl - The URL of the sitemap to fetch.
+ * @param depth - Current recursion depth to prevent infinite loops.
  * @returns Array of page URLs extracted from the sitemap(s).
  */
-async function fetchAndParseSitemap(sitemapUrl: string): Promise<string[]> {
-    const response = await fetch(sitemapUrl, { signal: AbortSignal.timeout(10000) });
+async function fetchAndParseSitemap(sitemapUrl: string, depth = 0): Promise<string[]> {
+    if (depth > 5) return []; // Limit recursion
 
-    if (!response.ok) {
-        throw new Error(`Failed to fetch ${sitemapUrl}`);
-    }
-
-    const xmlText = await response.text();
-
-    // Verificar si es un índice de sitemaps
-    const isSitemapIndex = xmlText.includes('<sitemap>') || xmlText.includes('<sitemapindex>');
-
-    if (isSitemapIndex) {
-        // Extraer URLs de sitemaps del índice
-        const sitemapMatches = xmlText.match(/<loc>(.*?)<\/loc>/g);
-
-        if (!sitemapMatches) {
-            return [];
-        }
-
-        const sitemapUrls = sitemapMatches.map(match => {
-            return match.replace(/<\/?loc>/g, '').trim();
-        });
-
-        // Obtener recursivamente todas las URLs
-        const allUrls: string[] = [];
-        for (const url of sitemapUrls) {
-            try {
-                const urls = await fetchAndParseSitemap(url);
-                allUrls.push(...urls);
-            } catch (error) {
-                console.error(`Failed to fetch nested sitemap ${url}:`, error);
+    try {
+        const response = await fetch(sitemapUrl, {
+            signal: AbortSignal.timeout(10000),
+            headers: {
+                'User-Agent': 'AutoQA-Bot/1.0'
             }
-        }
+        });
 
-        return allUrls;
-    } else {
-        // Sitemap regular, extraer URLs de páginas
-        const urlMatches = xmlText.match(/<loc>(.*?)<\/loc>/g);
-
-        if (!urlMatches) {
+        if (!response.ok) {
             return [];
         }
 
-        return urlMatches.map(match => {
-            return match.replace(/<\/?loc>/g, '').trim();
-        });
+        const xmlText = await response.text();
+
+        // Extract URLs using a more robust regex that handles CDATA and potential namespaces
+        const extractLocs = (xml: string) => {
+            const locRegex = /<loc>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/loc>/gi;
+            const matches = [];
+            let match;
+            while ((match = locRegex.exec(xml)) !== null) {
+                if (match[1]) matches.push(match[1].trim());
+            }
+            return matches;
+        };
+
+        const isSitemapIndex = xmlText.includes('<sitemap>') || xmlText.includes('<sitemapindex>');
+
+        if (isSitemapIndex) {
+            const sitemapUrls = extractLocs(xmlText);
+            const allUrls: string[] = [];
+
+            // Limit number of nested sitemaps to process to avoid timeouts
+            const limitedSitemaps = sitemapUrls.slice(0, 50);
+
+            for (const url of limitedSitemaps) {
+                try {
+                    const urls = await fetchAndParseSitemap(url, depth + 1);
+                    allUrls.push(...urls);
+                } catch (error) {
+                    console.error(`Failed to fetch nested sitemap ${url}:`, error);
+                }
+            }
+
+            return allUrls;
+        } else {
+            return extractLocs(xmlText);
+        }
+    } catch (error) {
+        console.error(`Error fetching sitemap ${sitemapUrl}:`, error);
+        return [];
+    }
+}
+
+/**
+ * Attempts to find sitemap URLs from robots.txt.
+ *
+ * @param baseUrl - The base URL of the website.
+ * @returns Array of sitemap URLs found in robots.txt.
+ */
+async function getSitemapsFromRobots(baseUrl: string): Promise<string[]> {
+    try {
+        const robotsUrl = `${baseUrl}/robots.txt`;
+        const response = await fetch(robotsUrl, { signal: AbortSignal.timeout(5000) });
+        if (!response.ok) return [];
+
+        const text = await response.text();
+        const sitemapLines = text.split('\n').filter(line => line.toLowerCase().startsWith('sitemap:'));
+
+        return sitemapLines.map(line => line.split(/sitemap:/i)[1].trim());
+    } catch {
+        return [];
     }
 }
 
@@ -72,48 +101,57 @@ export async function GET(request: Request) {
     }
 
     try {
-        // TODO: consider extracting domain/URL normalization logic
-        // Normalizar URL
-        let baseUrl = url;
-        if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
-            baseUrl = 'https://' + baseUrl;
-        }
-        if (baseUrl.endsWith('/')) {
-            baseUrl = baseUrl.slice(0, -1);
-        }
+        const baseUrl = normalizeUrl(url);
 
-        // Intentar obtener sitemap.xml
-        let sitemapUrl = `${baseUrl}/sitemap.xml`;
+        // Strategy 1: Check robots.txt
+        const sitemapsFromRobots = await getSitemapsFromRobots(baseUrl);
+
+        // Strategy 2: Common locations
+        const commonLocations = [
+            `${baseUrl}/sitemap.xml`,
+            `${baseUrl}/sitemap_index.xml`,
+            `${baseUrl}/sitemap/sitemap.xml`,
+            `${baseUrl}/sitemap/index.xml`,
+            `${baseUrl}/sitemap-index.xml`,
+        ];
+
+        const candidateSitemaps = [...new Set([...sitemapsFromRobots, ...commonLocations])];
+
         let allUrls: string[] = [];
+        let discoveredSitemap = '';
 
-        try {
-            allUrls = await fetchAndParseSitemap(sitemapUrl);
-        } catch {
-            // Si falla sitemap.xml, intentar sitemap_index.xml
-            sitemapUrl = `${baseUrl}/sitemap_index.xml`;
-            try {
-                allUrls = await fetchAndParseSitemap(sitemapUrl);
-            } catch {
-                return NextResponse.json({ error: 'Sitemap not found' }, { status: 404 });
+        for (const sitemapUrl of candidateSitemaps) {
+            const urls = await fetchAndParseSitemap(sitemapUrl);
+            if (urls.length > 0) {
+                allUrls = urls;
+                discoveredSitemap = sitemapUrl;
+                break;
             }
         }
 
         if (allUrls.length === 0) {
-            return NextResponse.json({ error: 'No URLs found in sitemap' }, { status: 404 });
+            return NextResponse.json({ error: 'No sitemap found or sitemap is empty' }, { status: 404 });
         }
 
-        // Eliminar duplicados
+        // Clean and filter URLs
         const uniqueUrls = [...new Set(allUrls)];
-
-        // Filtrar URLs que no sean páginas
         const pageUrls = uniqueUrls.filter(url => {
-            return !url.endsWith('.xml') && !url.endsWith('.xsl');
+            try {
+                const u = new URL(url);
+                const isXmlOrXsl = u.pathname.endsWith('.xml') || u.pathname.endsWith('.xsl');
+                const isImage = /\.(png|jpe?g|gif|svg|webp|ico)$/i.test(u.pathname);
+                const isPdf = u.pathname.endsWith('.pdf');
+                return !isXmlOrXsl && !isImage && !isPdf;
+            } catch {
+                return false;
+            }
         });
 
         return NextResponse.json({
-            urls: pageUrls,
+            urls: pageUrls.slice(0, 500), // Limit total URLs to 500 for safety
             count: pageUrls.length,
-            sitemapUrl
+            sitemapUrl: discoveredSitemap,
+            totalFound: pageUrls.length
         });
 
     } catch (error: unknown) {

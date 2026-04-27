@@ -16,12 +16,22 @@ export async function checkLinks(links: string[]): Promise<BrokenLink[]> {
     const results = await Promise.all(linksToCheck.map(async (link) => {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout to 8s
 
-            const res = await fetch(link, {
+            let res = await fetch(link, {
                 method: 'HEAD',
-                signal: controller.signal
+                signal: controller.signal,
+                headers: { 'User-Agent': 'AutoQA-Bot/1.0' }
             });
+
+            // If HEAD fails, try GET (some servers block HEAD)
+            if (!res.ok) {
+                res = await fetch(link, {
+                    method: 'GET',
+                    signal: controller.signal,
+                    headers: { 'User-Agent': 'AutoQA-Bot/1.0' }
+                });
+            }
 
             clearTimeout(timeoutId);
             return { link, status: res.status, ok: res.ok };
