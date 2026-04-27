@@ -58,51 +58,63 @@ export function AnalysisDashboard({
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Columna Izquierda: Estado */}
             <div className="lg:col-span-1 space-y-4">
-                <Card>
+                <Card aria-label="Estado del análisis">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-blue-600" />
+                            <Activity className="h-4 w-4 text-primary" aria-hidden="true" />
                             Estado en Vivo
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div>
+                        <div aria-live="polite" aria-atomic="true">
                             <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm text-gray-600">Progreso</span>
+                                <span className="text-sm text-muted-foreground">Progreso</span>
                                 <span className="text-sm font-semibold">{Math.round(progressPercentage)}%</span>
                             </div>
-                            <Progress value={progressPercentage} />
-                            <p className="text-xs text-gray-500 mt-2">
+                            <Progress value={progressPercentage} aria-label="Progreso total del análisis" />
+                            <p className="text-xs text-muted-foreground mt-2">
                                 {results.length} de {selectedUrlsSize} completadas
                             </p>
                         </div>
 
                         {currentAnalyzingUrl && (
-                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md animate-in fade-in duration-300">
-                                <p className="text-xs font-medium text-blue-900 mb-1">Analizando actualmente:</p>
-                                <p className="text-xs text-blue-700 truncate">{currentAnalyzingUrl}</p>
+                            <div 
+                                className="p-3 bg-primary/10 border border-primary/20 rounded-md animate-in fade-in duration-300"
+                                aria-live="assertive"
+                            >
+                                <p className="text-xs font-medium text-primary mb-1">Analizando actualmente:</p>
+                                <p className="text-xs text-primary/80 truncate">{currentAnalyzingUrl}</p>
                             </div>
                         )}
 
                         {analyzing ? (
-                            <Button onClick={onStopAnalysis} className="w-full bg-red-600 hover:bg-red-700 text-white shadow-lg active:scale-[0.98] transition-all">
-                                <Square className="h-4 w-4 mr-2 fill-current" /> Detener Análisis
+                            <Button 
+                                onClick={onStopAnalysis} 
+                                variant="destructive"
+                                className="w-full shadow-lg active:scale-[0.98] transition-all"
+                                aria-label="Detener el análisis actual"
+                            >
+                                <Square className="h-4 w-4 mr-2 fill-current" aria-hidden="true" /> Detener Análisis
                             </Button>
                         ) : (
-                            <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
-                                <CheckCircle2 className="h-4 w-4" />
+                            <div className="flex items-center gap-2 text-sm text-green-600 font-medium" role="status">
+                                <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                                 <span>Análisis completado</span>
                             </div>
                         )}
 
-                        <div className="bg-gray-900 rounded-xl p-3 max-h-[300px] overflow-hidden flex flex-col border border-gray-800 shadow-inner">
-                            <div className="flex items-center gap-2 text-gray-400 border-b border-gray-800 pb-2 mb-2">
-                                <Terminal className="h-3 w-3" />
+                        <div 
+                            className="bg-zinc-950 rounded-xl p-3 max-h-[300px] overflow-hidden flex flex-col border border-zinc-800 shadow-inner"
+                            aria-label="Registro de actividad de la consola"
+                            role="log"
+                        >
+                            <div className="flex items-center gap-2 text-zinc-500 border-b border-zinc-800 pb-2 mb-2">
+                                <Terminal className="h-3 w-3" aria-hidden="true" />
                                 <span className="text-xs font-mono uppercase tracking-tighter">Console</span>
                             </div>
                             <div className="flex-1 overflow-y-auto font-mono text-xs space-y-1 custom-scrollbar">
                                 {logs.map((log, i) => (
-                                    <div key={i} className="text-gray-300">
+                                    <div key={i} className="text-zinc-300">
                                         {log}
                                     </div>
                                 ))}
@@ -122,13 +134,13 @@ export function AnalysisDashboard({
                                 variant="ghost"
                                 size="icon"
                                 onClick={onGoBack}
-                                className="h-8 w-8 hover:bg-gray-100 rounded-full"
+                                className="h-8 w-8 hover:bg-secondary rounded-full"
                                 title="Nueva Selección"
                             >
-                                <CornerUpLeft className="h-4 w-4 text-gray-500" />
+                                <CornerUpLeft className="h-4 w-4 text-muted-foreground" />
                             </Button>
                         )}
-                        <h2 className="text-xl font-bold text-gray-900 tracking-tight">Resultados</h2>
+                        <h2 className="text-xl font-bold text-foreground tracking-tight">Resultados</h2>
                     </div>
                     <Badge variant="outline" className="font-mono">
                         {results.length} / {selectedUrlsSize}
@@ -146,12 +158,12 @@ export function AnalysisDashboard({
                     {!globalResult && analyzing && (
                         <Card className="border-dashed border-2">
                             <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-3">
-                                <div className="p-3 bg-blue-50 rounded-full animate-pulse">
-                                    <Globe className="h-6 w-6 text-blue-600 animate-spin-slow" />
+                                <div className="p-3 bg-primary/10 rounded-full animate-pulse">
+                                    <Globe className="h-6 w-6 text-primary animate-spin-slow" />
                                 </div>
                                 <div className="space-y-1">
-                                    <h3 className="text-sm font-semibold text-gray-900">Configuración Global</h3>
-                                    <p className="text-xs text-gray-500">Analizando DNS, Search Console y Analíticas...</p>
+                                    <h3 className="text-sm font-semibold text-foreground">Configuración Global</h3>
+                                    <p className="text-xs text-muted-foreground">Analizando DNS, Search Console y Analíticas...</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -166,7 +178,7 @@ export function AnalysisDashboard({
 
                     {/* Mostrar esqueletos de carga basados en concurrencia */}
                     {analyzing && selectedUrlsSize > results.length && Array.from({ length: Math.min(concurrency, selectedUrlsSize - results.length) }).map((_, i) => (
-                        <Card key={`skeleton-${i}`} className="border-l-4 border-l-gray-200">
+                        <Card key={`skeleton-${i}`} className="border-l-4 border-l-muted">
                             <CardHeader className="pb-3">
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1 space-y-2">
