@@ -3,6 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Globe, Loader2, AlertCircle } from 'lucide-react';
 
+/**
+ * Props for the HeroInput component.
+ */
 interface HeroInputProps {
     domain: string;
     setDomain: (domain: string) => void;
@@ -11,6 +14,12 @@ interface HeroInputProps {
     onSubmit: (e: React.FormEvent) => void;
 }
 
+/**
+ * Main input section for the analysis application.
+ *
+ * @param props - Component props.
+ * @returns React component.
+ */
 export function HeroInput({ domain, setDomain, loading, error, onSubmit }: HeroInputProps) {
     return (
         <div className="max-w-2xl mx-auto text-center space-y-6">

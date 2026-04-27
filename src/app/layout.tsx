@@ -8,6 +8,9 @@ const inter = Inter({
   display: "swap",
 });
 
+/**
+ * Global metadata for the application.
+ */
 export const metadata: Metadata = {
   title: "AutoQA - Herramienta de Análisis Web",
   description: "Análisis integral de SEO, accesibilidad y enlaces para tu sitio web.",
@@ -20,6 +23,12 @@ export const metadata: Metadata = {
   }
 };
 
+/**
+ * Root layout component for the application.
+ *
+ * @param props - Layout props containing children elements.
+ * @returns React component.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

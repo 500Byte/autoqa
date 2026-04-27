@@ -1,5 +1,11 @@
 import { GoogleAnalyticsData } from "@/types";
 
+/**
+ * Analyzes script sources to detect Google Analytics 4, Universal Analytics, and Tag Manager.
+ *
+ * @param scripts - Array of script source URLs.
+ * @returns Object containing detection flags and extracted IDs.
+ */
 export function analyzeGoogleAnalytics(scripts: string[]): GoogleAnalyticsData {
     const measurementIds: string[] = [];
     const gtmContainers: string[] = [];
@@ -50,7 +56,10 @@ export function analyzeGoogleAnalytics(scripts: string[]): GoogleAnalyticsData {
 }
 
 /**
- * Extraer IDs de GA/GTM de scripts inline
+ * Extracts GA/GTM IDs from inline script content.
+ *
+ * @param scriptContent - The content of the script tag.
+ * @returns Object containing extracted IDs.
  */
 export function extractAnalyticsFromScriptContent(scriptContent: string): {
     measurementIds: string[];
@@ -99,7 +108,10 @@ export function extractAnalyticsFromScriptContent(scriptContent: string): {
 }
 
 /**
- * Escanear todo el HTML para encontrar IDs incluso si los scripts fueron bloqueados o modificados
+ * Scans entire HTML content to find IDs even if scripts were blocked or modified.
+ *
+ * @param htmlContent - The full HTML content of the page.
+ * @returns Object containing extracted IDs.
  */
 export function extractAnalyticsFromHtmlContent(htmlContent: string): {
     measurementIds: string[];
@@ -176,7 +188,12 @@ export function extractAnalyticsFromHtmlContent(htmlContent: string): {
 }
 
 /**
- * Realiza un escaneo completo de analíticas combinando todas las técnicas disponibles
+ * Performs a comprehensive analytics scan combining all available techniques.
+ *
+ * @param scripts - Array of script source URLs.
+ * @param inlineScripts - Array of inline script contents.
+ * @param htmlContent - Full HTML content of the page.
+ * @returns Combined detection flags and extracted IDs.
  */
 export function comprehensiveAnalyticsScan(
     scripts: string[],
@@ -226,4 +243,3 @@ export function comprehensiveAnalyticsScan(
         uaIds: uniqueUaIds
     };
 }
-

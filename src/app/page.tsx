@@ -6,9 +6,14 @@ import { HeroInput } from "@/components/features/HeroInput";
 import { UrlSelection } from "@/components/features/UrlSelection";
 import { AnalysisDashboard } from "@/components/features/AnalysisDashboard";
 import { SettingsDrawer } from "@/components/features/SettingsDrawer";
-import { SitemapResponse, AnalysisResult, AnalysisSettings } from "@/types";
+import { SitemapResponse, AnalysisResult, AnalysisSettings, AnalyticsData } from "@/types";
 import { Settings2 } from 'lucide-react';
+import Image from 'next/image';
 
+/**
+ * Main application page for AutoQA.
+ * Manages states for URL input, sitemap selection, and analysis results.
+ */
 export default function Home() {
   const [domain, setDomain] = useState('');
   const [loadingSitemap, setLoadingSitemap] = useState(false);
@@ -33,7 +38,7 @@ export default function Home() {
     bestPractices: true
   });
 
-  const [globalResult, setGlobalResult] = useState<any>(null);
+  const [globalResult, setGlobalResult] = useState<{ analytics: AnalyticsData } | null>(null);
 
   // Load settings from localStorage
   useEffect(() => {
@@ -52,6 +57,9 @@ export default function Home() {
     localStorage.setItem('autoqa_settings', JSON.stringify(settings));
   }, [settings]);
 
+  /**
+   * Fetches the sitemap for the entered domain.
+   */
   const handleFetchSitemap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!domain) return;
@@ -71,13 +79,18 @@ export default function Home() {
 
       setSitemapUrls(data.urls);
       setSelectedUrls(new Set(data.urls));
-    } catch (err: any) {
-      setSitemapError(err.message);
+    } catch (err: unknown) {
+      const error = err as Error;
+      setSitemapError(error.message);
     } finally {
       setLoadingSitemap(false);
     }
   };
 
+  /**
+   * Toggles selection of a URL in the sitemap list.
+   * Supports shift-click for range selection.
+   */
   const handleToggleUrl = (url: string, index: number, event: React.MouseEvent) => {
     const newSelected = new Set(selectedUrls);
 
@@ -104,20 +117,32 @@ export default function Home() {
     setLastClickedIndex(index);
   };
 
+  /**
+   * Selects all URLs in the sitemap.
+   */
   const handleSelectAll = () => {
     setSelectedUrls(new Set(sitemapUrls));
   };
 
+  /**
+   * Deselects all URLs in the sitemap.
+   */
   const handleDeselectAll = () => {
     setSelectedUrls(new Set());
   };
 
+  /**
+   * Resets to initial input state.
+   */
   const handleGoBackToInput = () => {
     setSitemapUrls([]);
     setSelectedUrls(new Set());
     setDomain('');
   };
 
+  /**
+   * Returns from dashboard to URL selection.
+   */
   const handleGoBackToSelection = () => {
     setResults([]);
     setGlobalResult(null);
@@ -126,6 +151,9 @@ export default function Home() {
     setCurrentAnalyzingUrl('');
   };
 
+  /**
+   * Aborts the ongoing analysis.
+   */
   const handleStopAnalysis = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -136,6 +164,9 @@ export default function Home() {
     }
   };
 
+  /**
+   * Initiates the analysis process for selected URLs.
+   */
   const handleAnalyze = async () => {
     if (selectedUrls.size === 0) return;
 
@@ -155,7 +186,7 @@ export default function Home() {
           urls: Array.from(selectedUrls),
           settings
         }),
-        signal: abortControllerRef.current.signal,
+        signal: (abortControllerRef.current as AbortController).signal,
       });
 
       if (!res.body) {
@@ -214,11 +245,12 @@ export default function Home() {
           }
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
+    } catch (err: unknown) {
+      const error = err as Error;
+      if (error.name === 'AbortError') {
         console.log('Fetch aborted');
       } else {
-        setSitemapError(err.message);
+        setSitemapError(error.message);
       }
     } finally {
       setAnalyzing(false);
@@ -237,7 +269,7 @@ export default function Home() {
       <header className="fixed top-0 left-0 right-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="container mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/icon.png" alt="AutoQA Logo" className="h-8 w-8 rounded-md" />
+            <Image src="/icon.png" alt="AutoQA Logo" width={32} height={32} className="rounded-md" />
             <span className="font-semibold text-base">AutoQA</span>
           </div>
           <div className="flex items-center gap-4">

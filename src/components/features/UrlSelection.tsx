@@ -2,9 +2,12 @@ import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Check, Minus, ArrowRight, Search, ArrowUpAZ, ArrowDownAZ } from 'lucide-react';
+import { ArrowLeft, Check, ArrowRight, Search, ArrowUpAZ, ArrowDownAZ } from 'lucide-react';
 import { cn } from "@/lib/utils";
 
+/**
+ * Props for the UrlSelection component.
+ */
 interface UrlSelectionProps {
     sitemapUrls: string[];
     selectedUrls: Set<string>;
@@ -15,6 +18,13 @@ interface UrlSelectionProps {
     onAnalyze: () => void;
 }
 
+/**
+ * Component for selecting which URLs to analyze from a discovered sitemap.
+ * Supports filtering, sorting, and batch selection.
+ *
+ * @param props - Component props.
+ * @returns React component.
+ */
 export function UrlSelection({
     sitemapUrls,
     selectedUrls,
@@ -45,24 +55,7 @@ export function UrlSelection({
         return urls;
     }, [sitemapUrls, filterText, sortDirection]);
 
-    const handleSelectCurrent = () => {
-        // Select all currently filtered URLs
-        const newSelected = new Set(selectedUrls);
-        filteredUrls.forEach(url => newSelected.add(url));
-        // We need to pass this up, but the prop only supports "Select All" (global).
-        // Since we don't have a specific "Select URLs" prop, we'll simulate it by calling toggle for each? 
-        // No, that's inefficient. Ideally we should update the parent state logic.
-        // For now, let's keep it simple: "Select All" selects EVERYTHING in the sitemap, 
-        // but users might want to select only filtered.
-        // Let's modify the behavior: If filtered, select filtered. If not, select all.
-        // But the prop "onSelectAll" implies everything.
-        // Let's rely on individual selection for filtered items for now or we would need refactoring parent.
-        // Wait, I can implement a "Select Filtered" logic if I had access to setParentState.
-        // Given constraints, I will add a button "Seleccionar Visibles" that iterates and calls onToggleUrl? No, onToggleUrl takes event.
-        // I'll stick to manual interaction for now or add a helper if needed. 
-        // Re-reading user request: "filtros para ordenar agrupar colapsar".
-        // Just filtering/sorting the view is the primary request.
-    };
+    // handleSelectCurrent logic was commented out/incomplete in source, removed.
 
     return (
         <div className="max-w-4xl mx-auto">
@@ -131,7 +124,7 @@ export function UrlSelection({
                                 No se encontraron URLs que coincidan con &quot;{filterText}&quot;
                             </div>
                         ) : (
-                            filteredUrls.map((url, index) => (
+                            filteredUrls.map((url) => (
                                 <div
                                     key={url}
                                     onClick={(e) => onToggleUrl(url, sitemapUrls.indexOf(url), e)}

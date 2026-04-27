@@ -3,12 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, Shield, CheckCircle, XCircle, AlertTriangle } from "lucide-react";
 
+/**
+ * Props for the AnalyticsCard component.
+ */
 interface AnalyticsCardProps {
     analytics: AnalyticsData;
-    url: string;
+    /** @deprecated url is not used in the component */
+    url?: string;
 }
 
-export function AnalyticsCard({ analytics, url }: AnalyticsCardProps) {
+/**
+ * Component that displays detected Google Analytics and Google Search Console information.
+ *
+ * @param props - Component props including analytics data.
+ * @returns React component.
+ */
+export function AnalyticsCard({ analytics }: AnalyticsCardProps) {
     const { googleAnalytics, searchConsole } = analytics;
 
     // Verificar si se detectan métodos de analítica o search console

@@ -1,9 +1,12 @@
 'use client';
 
-import { X, Settings2, Zap, Shield, Clock, Info } from 'lucide-react';
+import { X, Settings2, Zap, Shield, Info } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { AnalysisSettings } from '@/types';
 
+/**
+ * Props for the SettingsDrawer component.
+ */
 interface SettingsDrawerProps {
     isOpen: boolean;
     onClose: () => void;
@@ -11,7 +14,16 @@ interface SettingsDrawerProps {
     onSettingsChange: (settings: AnalysisSettings) => void;
 }
 
+/**
+ * Side drawer for configuring analysis settings.
+ *
+ * @param props - Component props.
+ * @returns React component.
+ */
 export function SettingsDrawer({ isOpen, onClose, settings, onSettingsChange }: SettingsDrawerProps) {
+    /**
+     * Helper to update a specific setting.
+     */
     const updateSetting = <K extends keyof AnalysisSettings>(key: K, value: AnalysisSettings[K]) => {
         onSettingsChange({ ...settings, [key]: value });
     };
