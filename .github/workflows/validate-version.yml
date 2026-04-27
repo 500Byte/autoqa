@@ -41,8 +41,7 @@ jobs:
             exit 0
           fi
           
-          VALID_COMMITS=$(echo "$COMMITS" | grep -ivE '^[a-f0-9]+ Merge' || true)
-          INVALID_COMMITS=$(echo "$VALID_COMMITS" | grep -ivE '^[a-f0-9]+ (feat|fix|docs|style|refactor|perf|test|chore)(\(.*?\))?:' || true)
+          INVALID_COMMITS=$(echo "$COMMITS" | grep -viE '^[a-f0-9]+ (Merge .*|(feat|fix|docs|style|refactor|perf|test|chore)(\(.*?\))?:)' || true)
           
           if [ -n "$INVALID_COMMITS" ]; then
             echo ""
